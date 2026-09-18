@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+venv_dir="$project_root/.venv"
+
+if [ ! -x "$venv_dir/bin/python" ] || [ ! -x "$venv_dir/bin/pip" ]; then
+  if command -v virtualenv >/dev/null 2>&1; then
+    virtualenv --clear --quiet "$venv_dir"
+  else
+    python3 -m venv "$venv_dir"
+  fi
+fi
+
+"$venv_dir/bin/python" -m pip install --disable-pip-version-check --quiet -r "$project_root/requirements.lock"
+exec "$venv_dir/bin/python" -m unittest discover -s "$project_root/tests" -p 'test_*.py' -v

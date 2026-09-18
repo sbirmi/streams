@@ -19,3 +19,14 @@
 - **Decision:** Use revision-checked writes for whole-note edits and atomic append operations for comments/updates.
 - **Reason:** It prevents silent clobbering while keeping the application simple and avoiding locks.
 
+## D004 — Flask, SQLite, and a thin browser client for the initial implementation
+
+- **Status:** accepted for initial implementation
+- **Decision:** Use Flask with Python, SQLite through `sqlite3`, server-rendered HTML, vanilla JavaScript, and project-owned CSS. Run application and tests through the project-local virtualenv.
+- **Reason:** This keeps the first implementation small, fast to start, and easy to inspect while leaving room for targeted client-side behavior.
+
+## D005 — SQL migrations and repository-owned transactions
+
+- **Status:** accepted for initial implementation
+- **Decision:** Keep schema changes as ordered SQL migrations. A repository layer owns SQL and short SQLite transactions; routes and future services do not manage raw connections directly.
+- **Reason:** This keeps the data boundary explicit, makes upgrades reviewable, and supports revision checks/history without coupling the UI to SQLite details.

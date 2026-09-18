@@ -21,6 +21,7 @@ The eventual deployment must document:
 - persistent data location
 - health/readiness check
 - startup, shutdown, and upgrade procedure
+- database migration execution and failure handling
 - backup and restore procedure
 - log locations and useful diagnostics
 - rollback procedure

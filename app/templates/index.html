@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A fast shared stream-of-thoughts notes application">
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Shared notes</p>
+          <h1>{{ app_name }}</h1>
+        </div>
+        <div class="identity" aria-label="Current username">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" placeholder="e.g. alex" autocomplete="nickname">
+        </div>
+      </header>
+
+      <section class="empty-state" aria-labelledby="welcome-title">
+        <p class="eyebrow">Application shell</p>
+        <h2 id="welcome-title">Your streams will appear here.</h2>
+        <p>The first build establishes the fast, shared workspace. Bundles, streams, comments, and views will be added next.</p>
+        <button type="button" data-action="create-placeholder">Add a stream</button>
+      </section>
+    </main>
+  </body>
+</html>
+

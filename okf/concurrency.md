@@ -8,7 +8,7 @@ Each independently editable object (stream, comment, and eventually other editab
 
 1. Server accepts the write only if the stored revision is still `N`.
 2. On success, the server stores the change as revision `N+1`.
-3. If the stored revision is greater than `N`, the server rejects the write as a conflict and returns the current note.
+3. If the stored revision is greater than `N`, the server rejects the write as a conflict and returns the current object.
 4. The client shows the user their draft and the newer server version, with a retry/merge flow.
 
 This prevents silent last-write-wins clobbering without requiring locks or user accounts. Editing a stream should not block someone else from editing a different stream or comment.
@@ -19,7 +19,7 @@ The UI should show a lightweight “being edited” indicator when another brows
 
 ## Append operations
 
-Adding a comment/update should be an atomic append against the note. It should not require the editor to submit the entire note body, so unrelated comment additions do not conflict unnecessarily. The server still assigns ordering and timestamps.
+Adding a comment/update is an atomic append against the stream. It does not require the editor to submit the entire stream body, so unrelated comment additions do not conflict unnecessarily. Comments have their own revisions for later edits, while the parent stream’s revision remains independent.
 
 ## Future options
 

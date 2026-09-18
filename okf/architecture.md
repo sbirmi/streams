@@ -4,16 +4,16 @@ Status: proposed.
 
 ## Proposed implementation baseline
 
-- **Backend:** Python 3 with a small web framework such as Flask. Keep the HTTP/API layer thin and use server-rendered HTML where that improves startup and responsiveness.
+- **Backend:** Python 3 with Flask. Keep the HTTP/API layer thin and use server-rendered HTML where that improves startup and responsiveness.
 - **Storage:** SQLite through Python’s built-in `sqlite3` module. It requires no separate database service and is appropriate for the expected small, trusted-network deployment. Enable WAL mode and use short transactions; SQLite still permits only one simultaneous write transaction, so optimistic object revisions remain necessary.
 - **Frontend:** Server-rendered HTML, one small vanilla JavaScript module, and project-owned CSS. Avoid a frontend framework and build pipeline until the interaction model proves it needs one.
 - **Markdown:** Render Markdown on the server with a maintained parser, enable only the required extensions, and sanitize/allowlist the resulting HTML before storing or serving it. Do not implement a Markdown parser or HTML sanitizer from scratch.
 
-This is a starting point rather than a final dependency decision. Any selected framework or package should be pinned, reviewed, and recorded before implementation.
+Flask is selected for the initial implementation. Any additional framework or package should be pinned, reviewed, and recorded before implementation.
 
 ## Development environment
 
-The application and its tests must run inside a project-local Python virtualenv. The repository should provide a single obvious command or script that creates/updates the virtualenv and runs the complete test suite through it. Tests must not depend on globally installed Python packages or tools.
+The application and its tests must run inside a project-local Python virtualenv. The repository provides scripts that create the virtualenv automatically, using the system `virtualenv` tool when available and falling back to `python3 -m venv`, then install the pinned requirements and run commands through that environment. Tests must not depend on globally installed Python packages or tools.
 
 ## Shape
 
@@ -106,10 +106,16 @@ The current username is client-provided, unvalidated display attribution. It mus
 
 A bundle groups related streams, such as todos, recipes, or side projects. A topic is a possible label for a bundle or grouping within one; the exact vocabulary remains open. These are generic containers, not domain-specific schemas. A recipe is simply a user’s content organized with streams and child streams, with no special recipe support required.
 
+## SQLite data layer
+
+The database is migrated on application startup from ordered SQL files in `migrations/`. The repository layer owns SQL statements and exposes application-level operations rather than leaking connections into routes. Each write uses a short `BEGIN IMMEDIATE` transaction, foreign keys are enabled, and file-backed databases use WAL mode with a busy timeout.
+
+The initial schema contains `bundles`, `streams`, `comments`, `history`, and `schema_migrations`. Stream and comment revisions are independent. History stores actor attribution, changed fields, and before/after JSON snapshots. Stream position is stored separately from view sorting so future manual movement does not have to alter the meaning of deadline or chronological views.
+
 ## API expectations
 
 Use resource-oriented endpoints with explicit version or revision preconditions on mutating stream/comment operations. A write that supplies an old revision should return a conflict response and the current representation, rather than overwriting it. Deep links should use stable identifiers and encode view/filter/sort state in a bookmarkable form.
 
 External-reference recognition and rendering is described in [Integrations](integrations.md). Markdown rendering must use an allowlisted/sanitized renderer.
 
-The exact framework, database, wire format, and deployment packaging remain open until implementation begins; record the choice in `decisions.md`.
+The wire format and deployment packaging remain open; record future choices in `decisions.md`.
