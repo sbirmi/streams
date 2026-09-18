@@ -9,6 +9,7 @@ Build a simplistic, fast, web-based notes application for keeping track of ideas
 - The app is used by multiple people inside a secure network.
 - Anyone who can reach the service URL is currently treated as a trusted user.
 - Individual accounts are not part of the initial scope.
+- Users may enter an unvalidated display username for attribution.
 - Multiple users may read and write the same data at the same time.
 
 The trusted-network assumption is an operating constraint, not a claim that the application is safe to expose directly to the public internet.
@@ -27,9 +28,15 @@ The trusted-network assumption is an operating constraint, not a claim that the 
 
 The primary view is a compact hierarchy: a topic contains streams/issues, and each stream can show its latest comment or a configurable number of recent comments. Expanding a stream reveals its details and child items. The same underlying data should support alternate views such as priority/deadline, last update, and stale items.
 
-Topics are expected to have their own “recipe” or presentation rules. For example, a recipe topic may show a dish as the top-level item and ingredients/steps beneath it, while a todo topic may emphasize priority and deadlines.
+The application can contain many independent bundles of streams: for example, todos, recipes, side projects, or any other collection of related thoughts. These are use cases of the same generic structure, not separate first-class features or schemas.
 
 The interface should support Markdown in descriptions, summaries, and comments, rendered safely.
+
+## Lightweight attribution
+
+The root page should provide a place for a user to enter a made-up username. The application can use that value as the default creator/commenter attribution and wherever an owner/assignee value is needed. It is intentionally not validated and is not an authentication mechanism.
+
+Creation and ownership are separate concepts: the person who creates a stream or comment is not necessarily the person responsible for owning or completing it.
 
 ## Initial non-goals
 

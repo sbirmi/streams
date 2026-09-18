@@ -16,6 +16,7 @@ The service must not be described or configured as public-internet safe without 
 - Protect state-changing requests against cross-site request forgery if browser cookies are used.
 - Use HTTPS or a trusted internal TLS boundary in deployment.
 - Keep secrets out of source control and logs.
+- Treat the user-provided username as untrusted display data; escape it when rendered and never use it for authentication, authorization, or security decisions.
 - Log operational events without logging unnecessary note contents or secrets.
 - Define backup access and retention; backups contain user-authored data.
 - Run with least filesystem and network privileges available in the chosen deployment.

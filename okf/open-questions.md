@@ -6,7 +6,10 @@ These are intentionally unresolved and should be answered as implementation and 
 - Should the note body be plain text, Markdown, or another restricted format?
 - What is the exact minimal primary UI layout and which fields appear collapsed versus expanded?
 - Which keyboard shortcuts are defaults, and can users customize them?
-- Are topic recipes data, static configuration, or a constrained combination of both?
+- Which insertion/move controls are always visible, and which belong in context menus?
+- Should pointer reordering use drag-and-drop, explicit move commands, or both?
+- How should reordering interact with different view sorts: manual hierarchy order, view-derived order, or both?
+- What is the clearest name for a top-level grouping: bundle, collection, notebook, workspace, or topic?
 - What exact statuses, tags, sorting, and search behavior are needed?
 - In the default priority view, should items within a priority group sort by deadline or last update?
 - In flat views, how should child items and their parent context be represented?
@@ -16,6 +19,8 @@ These are intentionally unresolved and should be answered as implementation and 
 - Should comments be immutable, editable, or deletable? If mutable, how is history preserved?
 - What is the retention and storage cost policy for before/after history?
 - What does “owner” mean before individual accounts exist, and how should it be captured?
+- Should the current username persist in browser storage, be entered per session, or both?
+- How should users correct or distinguish duplicate/mistyped display usernames?
 - Should anonymous users have a display label for conflict messages or audit context without introducing accounts?
 - What note and comment size limits are appropriate?
 - Is a per-note revision sufficient, or do we need finer-grained field revisions?

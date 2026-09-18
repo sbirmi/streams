@@ -48,22 +48,28 @@ Show open items with no recent updates first, ordered by staleness. The meaning 
 
 ## Example alternate views
 
-- Topic-specific recipes such as recipes (dish → ingredients/steps) or todos (item → status/priority/deadline).
+- Different bundles can use the same hierarchy for different purposes, such as recipes (dish → ingredients/steps), todos, or side projects. These should not require special-purpose UI support.
 
 Views should have stable, shareable URLs. A URL may identify a stream directly or encode a topic, ordering, filters, expansion state, and comment-count preference.
 
 ## Keyboard-first actions
 
-The eventual shortcut set should cover:
+Keyboard shortcuts should make frequent navigation and edits fast, but the UI must also provide discoverable mouse/pointer controls. Mouse and keyboard should cover the same core actions where practical; reordering may rely more heavily on pointer interaction.
+
+The eventual action set should cover:
 
 - moving between visible streams/comments
 - opening and closing a stream
 - expanding/collapsing a topic or stream
 - creating, editing, and moving an item
+- inserting a new item before, after, or beneath a selected item
+- moving an existing item before, after, or beneath another item
 - adding a comment
 - marking an item done/closed
 - showing more comments
 - jumping to search or a saved view
+
+Insertion and movement should be possible from context actions, inline controls, or a compact add/move affordance. Drag-and-drop may be the fastest mouse path for reordering, but it should have a clear non-drag fallback and must not be the only way to move an item.
 
 Exact keys, discoverability, focus behavior, and customization remain open. Shortcuts must not interfere with normal text entry in Markdown fields.
 
@@ -72,4 +78,6 @@ Exact keys, discoverability, focus behavior, and customization remain open. Shor
 - Render Markdown for summaries, descriptions, and comments with safe links and sanitized output.
 - Make save state, conflict state, and another-user editing indicators visible but unobtrusive.
 - Keep optimistic UI behavior reversible and reconcile it with the server response.
-- Avoid requiring drag-and-drop for core operations; keyboard and ordinary controls must provide equivalent actions.
+- Keep mouse targets compact but discoverable, including add-before/add-after/add-child and move controls.
+- Avoid requiring drag-and-drop for core operations; keyboard and ordinary controls must provide an equivalent path.
+- Preserve focus, scroll position, and the selected item after insertion or movement.

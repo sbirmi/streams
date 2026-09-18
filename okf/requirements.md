@@ -22,8 +22,13 @@ Requirement status is **proposed** unless stated otherwise.
 - **R16 — History:** Changes retain enough before/after information to support audit and targeted manual recovery.
 - **R17 — External references:** Configured reference patterns can turn identifiers such as `BUG123` into safe links and rendered references.
 - **R18 — Edit awareness:** The UI indicates when another user is editing a stream or comment, while still allowing independent objects to be edited concurrently.
+- **R24 — Lightweight attribution:** A user can provide an unvalidated display username at the root level, which is used as the default creator/commenter attribution and can be selected as an owner.
+- **R25 — Separate roles:** The data distinguishes creator from owner/assignee; creating an item does not automatically make the creator its owner in all cases.
 - **R19 — Default priority view:** At every hierarchy level, the default view shows open items first, grouped by priority, with closed items optionally included afterward.
 - **R20 — View recipes:** The system supports deadline-first, chronological/most-recently-touched, and stale-open views, each optionally flat or hierarchy-preserving.
+- **R21 — Pointer support:** Core navigation and editing actions work with mouse/pointer controls as well as keyboard shortcuts.
+- **R22 — Insertion and movement:** Users can insert an item before, after, or beneath another item, and move existing items around using keyboard and/or pointer interactions.
+- **R23 — Reordering usability:** After insertion or movement, the UI preserves context and makes the resulting position clear.
 
 ## Non-functional
 

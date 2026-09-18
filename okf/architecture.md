@@ -23,7 +23,8 @@ The working domain vocabulary is **topic**, **stream**, and **comment**. “Issu
 - `stream_id`
 - summary/title
 - Markdown description
-- owners (initially a placeholder string/list, not authenticated identities)
+- owners/assignees (initially placeholder string/list values, not authenticated identities)
+- creator attribution (separate from owner/assignee)
 - priority, with P0 as highest priority
 - snooze-until date
 - deadline
@@ -39,7 +40,7 @@ The working domain vocabulary is **topic**, **stream**, and **comment**. “Issu
 - `comment_id`
 - stream identifier
 - Markdown body
-- placeholder owner string
+- creator attribution (separate from any owner/assignee)
 - creation and last-update timestamps
 - optional sticky-note flag
 
@@ -49,9 +50,11 @@ Comments are append-oriented. A comment’s order can be derived from creation/o
 
 Mutations should produce history entries with object, actor placeholder, timestamp, changed fields, and before/after values. History must be usable for audit and targeted recovery without requiring every object to expose its full history in the primary view.
 
-### Topics and recipes
+The current username is client-provided, unvalidated display attribution. It must not be treated as proof of identity or used for authorization.
 
-A topic groups streams and may carry a presentation recipe: default columns/fields, hierarchy labels, ordering, filters, and keyboard behavior. Recipes should be configuration/data-driven where practical, but the first implementation should avoid a general-purpose scripting language.
+### Bundles and topics
+
+A bundle groups related streams, such as todos, recipes, or side projects. A topic is a possible label for a bundle or grouping within one; the exact vocabulary remains open. These are generic containers, not domain-specific schemas. A recipe is simply a user’s content organized with streams and child streams, with no special recipe support required.
 
 ## API expectations
 
