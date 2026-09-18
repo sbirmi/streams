@@ -12,6 +12,7 @@ The service must not be described or configured as public-internet safe without 
 - Render user content safely; prevent stored and reflected script injection.
 - Treat Markdown as untrusted input and sanitize rendered HTML; do not allow arbitrary raw HTML or unsafe URL schemes by default.
 - Treat configurable external-reference rules as trusted application configuration, not user-authored content; validate generated URLs and avoid shell/template execution.
+- Scope plugin CSS and markup so a plugin cannot unexpectedly restyle or interfere with the core interface; review plugin assets as code/dependencies.
 - Use parameterized datastore operations and avoid shell evaluation of user input.
 - Protect state-changing requests against cross-site request forgery if browser cookies are used.
 - Use HTTPS or a trusted internal TLS boundary in deployment.

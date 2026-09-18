@@ -3,6 +3,10 @@
 These are intentionally unresolved and should be answered as implementation and usage become clearer.
 
 - Which language, web framework, and datastore best fit the small-dependency requirement?
+- Should the first backend use Flask or an even thinner WSGI/ASGI layer?
+- Which Markdown parser and sanitizer combination gives the smallest acceptable reviewed dependency surface?
+- Should Markdown be rendered at write time, read time, or cached with an invalidation strategy?
+- What is the minimal plugin contract for declaring rendering markup, style names, and scoped CSS?
 - Should the note body be plain text, Markdown, or another restricted format?
 - What is the exact minimal primary UI layout and which fields appear collapsed versus expanded?
 - Which keyboard shortcuts are defaults, and can users customize them?

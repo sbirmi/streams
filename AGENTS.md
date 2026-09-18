@@ -20,6 +20,7 @@ This is intended to be a small, fast web notes application for ideas, issues, th
 ## Engineering priorities
 
 - Keep the system simple and fast.
+- Develop and test inside the project virtualenv; test commands should activate or invoke that environment automatically rather than relying on a developer’s global Python installation.
 - Minimize dependencies and pin or otherwise review dependencies to reduce supply-chain risk.
 - Make concurrent edits safe and visible; never silently overwrite a newer change.
 - Prefer reversible, observable operations and documented defaults.
@@ -28,6 +29,7 @@ This is intended to be a small, fast web notes application for ideas, issues, th
 ## Documentation map
 
 - Start with [`okf/README.md`](okf/README.md).
+- Current implementation queue: [`TODO.md`](TODO.md).
 - Product intent and scope: [`okf/product.md`](okf/product.md).
 - Requirements and acceptance criteria: [`okf/requirements.md`](okf/requirements.md).
 - Initial design: [`okf/architecture.md`](okf/architecture.md).
@@ -36,4 +38,3 @@ This is intended to be a small, fast web notes application for ideas, issues, th
 - Deployment and operations: [`okf/deployment.md`](okf/deployment.md).
 - Quick reference: [`okf/cheatsheet.md`](okf/cheatsheet.md).
 - Decisions and unresolved topics: [`okf/decisions.md`](okf/decisions.md), [`okf/open-questions.md`](okf/open-questions.md).
-

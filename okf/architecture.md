@@ -2,6 +2,19 @@
 
 Status: proposed.
 
+## Proposed implementation baseline
+
+- **Backend:** Python 3 with a small web framework such as Flask. Keep the HTTP/API layer thin and use server-rendered HTML where that improves startup and responsiveness.
+- **Storage:** SQLite through Python’s built-in `sqlite3` module. It requires no separate database service and is appropriate for the expected small, trusted-network deployment. Enable WAL mode and use short transactions; SQLite still permits only one simultaneous write transaction, so optimistic object revisions remain necessary.
+- **Frontend:** Server-rendered HTML, one small vanilla JavaScript module, and project-owned CSS. Avoid a frontend framework and build pipeline until the interaction model proves it needs one.
+- **Markdown:** Render Markdown on the server with a maintained parser, enable only the required extensions, and sanitize/allowlist the resulting HTML before storing or serving it. Do not implement a Markdown parser or HTML sanitizer from scratch.
+
+This is a starting point rather than a final dependency decision. Any selected framework or package should be pinned, reviewed, and recorded before implementation.
+
+## Development environment
+
+The application and its tests must run inside a project-local Python virtualenv. The repository should provide a single obvious command or script that creates/updates the virtualenv and runs the complete test suite through it. Tests must not depend on globally installed Python packages or tools.
+
 ## Shape
 
 Start with a single web application process backed by one durable datastore. Keep the browser client thin and expose a small HTTP API. A reverse proxy or private-network gateway may terminate transport security and provide access controls appropriate to the deployment.
@@ -13,6 +26,43 @@ browser(s) -> private network / reverse proxy -> web app -> durable datastore
 ```
 
 The first implementation should avoid requiring a queue, search cluster, cache, or separate frontend deployment unless measurements show a need.
+
+## High-level request flow
+
+```text
+browser
+  -> reverse proxy / internal TLS boundary
+  -> Flask routes
+  -> request validation and username/session context
+  -> application services
+       -> repositories / SQLite transactions
+       -> Markdown and reference rendering
+       -> history and presence events
+  -> HTML response or small JSON response
+  -> vanilla JavaScript updates the affected region
+```
+
+Keep these responsibilities separate even if they initially live in one Python process. Routes should translate HTTP requests; application services should enforce product rules; repositories should own SQL and transaction boundaries; renderers should own Markdown/reference output.
+
+## Frontend boundary
+
+The first UI should be server-rendered HTML with project-owned CSS and a small vanilla JavaScript layer for expansion, keyboard actions, inline editing, optimistic updates, presence indicators, and targeted refreshes. The browser should not need a large client-side state framework or a full client-side copy of the database.
+
+## Logging and observability
+
+Use Python’s standard logging facilities behind a small application logging wrapper. Emit structured, line-oriented events where practical so they remain readable locally and can later be ingested by a log collector.
+
+At minimum, log:
+
+- application startup/shutdown and selected configuration (never secrets);
+- request method, route name, status, duration, and request/correlation ID;
+- create/update/close/comment/conflict events with object IDs and actor display name where useful;
+- database lock, migration, backup, restore, and unhandled-error events;
+- presence/soft-lock failures at debug or warning level as appropriate.
+
+Do not log Markdown bodies, full usernames, cookies, authorization headers, secrets, or arbitrary request payloads by default. Note contents and history remain in the datastore, not the operational log. Logging must not become a second copy of private user data.
+
+The deployment should define log destination, retention, rotation, time format, and a way to correlate a user-visible error with its server-side event.
 
 ## Domain model (initial)
 

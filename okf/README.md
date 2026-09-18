@@ -23,3 +23,5 @@ Documentation is the source of truth. Every implementation change must update th
 ## Status
 
 This is a starting point, not a final specification. Items marked “proposed” or listed as open questions should be confirmed as the product develops.
+
+The active implementation queue is maintained in the repository root [`TODO.md`](../TODO.md). Completed items are moved to the bottom of that same file.

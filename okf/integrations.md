@@ -23,3 +23,13 @@ For example, a configured `BUG123` match could render as a link to the configure
 - External pages should normally open as links; fetching remote content or embedding previews is a separate decision with additional security and latency implications.
 - Rules should be deterministic, bounded, and compiled/validated at startup where possible.
 
+## Plugin-rendered styles
+
+If a plugin or configured integration adds a special rendering, it may declare an optional style name and the CSS definitions/classes needed for that rendering. Plugin styles should be:
+
+- scoped under a plugin-specific root class or attribute;
+- namespaced to avoid changing the application’s base UI;
+- reviewed and bundled as static assets rather than fetched at runtime;
+- subject to the same supply-chain and content-security review as plugin code.
+
+The plugin metadata should make the rendering name, required styles, and any required markup/classes explicit. A plugin should not inject arbitrary unscoped CSS into the whole application.
