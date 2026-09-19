@@ -11,7 +11,7 @@
     { id: "resolved", number: 7, parent: null, summary: "Publish the prototype review", description: "The first layout review is complete and the decisions are recorded.", priority: 1, deadline: null, updated: "2w ago", owners: ["alex"], tags: ["done", "prototype"], open: false, expanded: false, children: [], comments: [{ author: "alex", updated: "2w ago", text: "Resolved after the header, viewbar, and comment rail review." }] },
   ];
 
-  const state = { streams: structuredClone(initialStreams), selected: "ship", view: "priority", query: "", focusColumn: "stream", commentIndex: 0 };
+  const state = { streams: structuredClone(initialStreams), selected: "ship", view: "priority", query: "", focusColumn: "stream", commentIndex: 0, pendingCommand: "" };
   const list = document.querySelector("#stream-list");
   const viewSelect = document.querySelector("#view-select");
   const search = document.querySelector("#search");
@@ -59,6 +59,20 @@
   }
   function select(id, preserveCommentFocus = false) { state.selected = id; if (!preserveCommentFocus) { state.focusColumn = "stream"; state.commentIndex = 0; } render(); document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest" }); }
   function focusedStream() { return state.streams.find((stream) => stream.id === state.selected); }
+  function setExpandedRecursively(stream, expanded) {
+    stream.expanded = expanded;
+    state.streams.filter((item) => item.parent === stream.id).forEach((child) => setExpandedRecursively(child, expanded));
+  }
+  function handleFoldCommand(command) {
+    const stream = focusedStream();
+    if (!stream) return;
+    if (command === "zo") stream.expanded = true;
+    if (command === "zc") stream.expanded = false;
+    if (command === "zO") setExpandedRecursively(stream, true);
+    if (command === "zC") setExpandedRecursively(stream, false);
+    if (command === "za") stream.expanded = !stream.expanded;
+    render();
+  }
   function moveHorizontal(direction) {
     const stream = focusedStream();
     if (!stream) return;
@@ -125,13 +139,25 @@
     if (event.key === "?" && document.activeElement.tagName !== "INPUT") dialog.showModal();
     if (event.key === "Escape" && dialog.open) dialog.close();
     if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+    if (state.pendingCommand === "z") {
+      if (["o", "O", "c", "C", "a"].includes(event.key)) {
+        event.preventDefault();
+        handleFoldCommand(`z${event.key}`);
+      }
+      state.pendingCommand = "";
+      return;
+    }
+    if (event.key === "z") {
+      event.preventDefault();
+      state.pendingCommand = "z";
+      return;
+    }
     const visibleItems = visibleNavigationItems();
     const currentIndex = visibleItems.findIndex((stream) => stream.id === state.selected);
     if ((event.key === "j" || event.key === "ArrowDown") && currentIndex >= 0) { event.preventDefault(); moveVertical(1); }
     if ((event.key === "k" || event.key === "ArrowUp") && currentIndex >= 0) { event.preventDefault(); moveVertical(-1); }
     if (event.key === "h" || event.key === "ArrowLeft") { event.preventDefault(); moveHorizontal(-1); }
     if (event.key === "l" || event.key === "ArrowRight") { event.preventDefault(); moveHorizontal(1); }
-    if (event.key === "o") { const stream = state.streams.find((item) => item.id === state.selected); if (stream) { stream.expanded = !stream.expanded; render(); } }
   });
 
   render();

@@ -6,7 +6,7 @@ A standalone visual prototype is available in [`prototype/`](../prototype/). It 
 
 The UI should optimize for fast rendering, low interaction cost, and information density. It should feel like a quick shared workbench, not a large project-management dashboard.
 
-The current prototype direction favors a dense, list-like surface: minimal padding, no unnecessary cards, one compact header/control area, and stream rows that resemble a semantic unordered list. Comments are intentionally not shown in this first UI pass; their placement will be decided separately. Add-stream and reordering controls are also deferred while the reading/editing surface is being evaluated.
+The current prototype direction favors a dense, list-like surface: minimal padding, no unnecessary cards, one compact header/control area, and stream rows that resemble a semantic unordered list. The first UI pass includes recent comments in a horizontally scrollable comment rail beside each stream; this placement has proved useful for understanding the surrounding conversation without opening another view. Add-stream and reordering controls are also deferred while the reading/editing surface is being evaluated.
 
 Priority is rendered as the first metadata tag (for example, `#P0`) and color-coded like any other tag. The summary has no unrelated trailing labels; update time, owners, priority, tags, and deadline live in the metadata line beneath it.
 
