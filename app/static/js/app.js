@@ -61,12 +61,16 @@
     const items = visibleItems();
     const rootId = currentRootId();
     list.innerHTML = items.length ? (rootId ? renderStream(selectedStreamById(rootId), 0, items) : renderChildren(null, 0, items)) : (state.pendingInsert ? renderPlaceholder(0) : '<div class="empty-filter">No streams match this filter.</div>');
-    const open = state.streams.filter((stream) => !stream.closed_at).length;
-    document.querySelector("#toolbar-stats").textContent = `${open} open stream${open === 1 ? "" : "s"} · ${state.streams.length} total`;
+    const viewItems = currentRootItems();
+    const open = viewItems.filter((stream) => !stream.closed_at).length;
+    document.querySelector("#toolbar-stats").textContent = `${open} open stream${open === 1 ? "" : "s"} · ${viewItems.length} total`;
   }
   function selectedStream() { return state.streams.find((stream) => stream.id === state.selected); }
   function selectedComment() { const stream = selectedStream(); return state.focusColumn === "comments" ? stream?.comments?.[state.commentIndex] : null; }
-  function updateRootLabel() { const root = selectedStreamById(currentRootId()); document.querySelector("#bundle-name").textContent = root ? `Index / ${root.summary}` : state.bundle?.name || "Index"; }
+  function updateRootLabel() {
+    const path = state.rootPath.map((id) => selectedStreamById(id)?.summary).filter(Boolean);
+    document.querySelector("#bundle-name").textContent = path.length ? ["Index", ...path].join(" / ") : state.bundle?.name || "Index";
+  }
   function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; } render(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
   function moveVertical(direction) { const items = navigationItems(); const index = items.findIndex((stream) => stream.id === state.selected); const target = items[Math.max(0, Math.min(items.length - 1, index + direction))]; if (target) { const preserve = state.focusColumn === "comments" && (target.comments || []).length; state.commentIndex = preserve ? Math.min(state.commentIndex, target.comments.length - 1) : 0; select(target.id, Boolean(preserve)); } }
   function moveHorizontal(direction) { const stream = selectedStream(); if (!stream) return; const count = (stream.comments || []).length; if (direction > 0 && state.focusColumn === "stream" && count) state.focusColumn = "comments"; else if (direction > 0 && state.focusColumn === "comments") state.commentIndex = Math.min(state.commentIndex + 1, count - 1); else if (direction < 0 && state.focusColumn === "comments" && state.commentIndex > 0) state.commentIndex -= 1; else if (direction < 0) state.focusColumn = "stream"; render(); document.querySelector(`[data-id="${CSS.escape(state.selected || "")}"]`)?.scrollIntoView({ block: "nearest" }); }
@@ -79,7 +83,23 @@
   function showInsertionBlocked() { showCommandHud("Cannot insert beside the rooted stream; use ic to add a child"); }
   function requestRootInsertion() { if (currentRootId()) { showCommandHud("Cannot add a root stream while viewing a rooted stream"); return; } openEditor(null, "root"); }
   function enterRoot() { const stream = selectedStream(); if (!stream || currentRootId() === stream.id) return; state.rootPath.push(stream.id); state.selected = stream.id; state.focusColumn = "stream"; state.commentIndex = 0; updateRootLabel(); render(); }
-  function popRoot() { if (!state.rootPath.length) return; const leaving = selectedStreamById(state.rootPath.pop()); state.selected = leaving?.parent_stream_id || leaving?.id || state.streams[0]?.id || null; state.focusColumn = "stream"; state.commentIndex = 0; updateRootLabel(); render(); }
+  function popRoot() {
+    if (!state.rootPath.length) return;
+    const previousSelection = state.selected;
+    const leaving = selectedStreamById(state.rootPath.pop());
+    const parentItems = currentRootItems();
+    const selectionStillVisible = previousSelection && parentItems.some((stream) => stream.id === previousSelection);
+    if (!selectionStillVisible) {
+      const fallback = currentRootId() || leaving?.parent_stream_id || leaving?.id || navigationItems()[0]?.id || null;
+      state.selected = parentItems.some((stream) => stream.id === fallback) ? fallback : parentItems[0]?.id || null;
+    } else {
+      state.selected = previousSelection;
+    }
+    state.focusColumn = "stream";
+    state.commentIndex = 0;
+    updateRootLabel();
+    render();
+  }
   function openEditor(stream = null, placement = null) { state.editing = stream; state.editingPlacement = placement; state.pendingInsert = stream ? null : { placement: placement || "root", anchorId: state.selected }; render(); document.querySelector("#editor-title").textContent = stream ? "Edit stream" : "Add stream"; document.querySelector("#editor-placement").textContent = stream ? "" : ({ before: "Inserting before the focused stream", after: "Inserting after the focused stream", child: "Inserting as a child of the focused stream", root: "Adding a root stream" }[placement || "root"]); document.querySelector("#editor-summary").value = stream?.summary || ""; document.querySelector("#editor-description").value = stream?.description || ""; document.querySelector("#editor-priority").value = stream ? (stream.priority ?? "") : ""; document.querySelector("#editor-error").textContent = ""; const placeholder = document.querySelector(".is-placeholder"); placeholder?.scrollIntoView({ block: "center" }); if (!editorDialog.open) editorDialog.showModal(); requestAnimationFrame(() => document.querySelector("#editor-summary").focus()); }
   async function submitStream(event) { event.preventDefault(); const stream = state.editing; const priorityValue = document.querySelector("#editor-priority").value; const changes = { summary: document.querySelector("#editor-summary").value.trim(), description: document.querySelector("#editor-description").value, priority: priorityValue === "" ? null : Number(priorityValue) }; try { if (stream) await api(`/api/streams/${stream.id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: stream.revision, changes }) }); else { if (!state.bundle) state.bundle = (await api("/api/bundles", { method: "POST", body: JSON.stringify({ name: "Index", actor: actor() }) })).bundle; const siblingInsertion = state.editingPlacement === "before" || state.editingPlacement === "after"; await api(`/api/bundles/${state.bundle.id}/streams`, { method: "POST", body: JSON.stringify({ actor: actor(), ...changes, parent_stream_id: state.editingPlacement === "child" ? state.selected : siblingInsertion ? selectedStream()?.parent_stream_id : null, anchor_stream_id: siblingInsertion ? state.selected : null, placement: state.editingPlacement === "root" ? null : state.editingPlacement, root_stream_id: currentRootId() }) }); } state.pendingInsert = null; editorDialog.close(); await loadStreams(); document.querySelector("#status-message").textContent = stream ? "Stream saved" : "Stream added"; } catch (error) { document.querySelector("#editor-error").textContent = error.message; } }
   function openComment(stream = selectedStream()) { if (!stream) return; state.editing = stream; document.querySelector("#comment-body").value = ""; document.querySelector("#comment-error").textContent = ""; commentDialog.showModal(); document.querySelector("#comment-body").focus(); }
