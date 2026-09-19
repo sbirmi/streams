@@ -6,6 +6,8 @@ move_left: [h, ArrowLeft]
 move_right: [l, ArrowRight]
 move_up: [k, ArrowUp]
 move_down: [j, ArrowDown]
+move_previous_sibling: (
+move_next_sibling: )
 edit: e
 add_comment: a
 open_help: ?

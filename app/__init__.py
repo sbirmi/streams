@@ -12,7 +12,8 @@ from .routes import register_routes
 
 
 SHORTCUT_ACTIONS = {
-    "move_left", "move_right", "move_up", "move_down", "edit", "add_comment",
+    "move_left", "move_right", "move_up", "move_down", "move_previous_sibling", "move_next_sibling",
+    "edit", "add_comment",
     "open_help", "cancel_command", "zoom_enter", "zoom_back", "delete_stream",
     "delete_comment", "insert_before", "insert_after", "insert_child", "fold_open",
     "fold_open_all", "fold_close", "fold_close_all", "fold_toggle",

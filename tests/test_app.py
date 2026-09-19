@@ -146,6 +146,8 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(shortcuts["delete_stream"], ["ds"])
         self.assertEqual(shortcuts["zoom_back"], ["Z Backspace"])
         self.assertEqual(shortcuts["move_down"], ["j", "ArrowDown"])
+        self.assertEqual(shortcuts["move_previous_sibling"], ["("])
+        self.assertEqual(shortcuts["move_next_sibling"], [")"])
 
     def test_shortcut_config_requires_every_action_and_rejects_legacy_map(self) -> None:
         path = Path(self.tempdir.name) / "shortcuts.yaml"
@@ -158,6 +160,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         path = Path(self.tempdir.name) / "shortcuts.yaml"
         path.write_text("\n".join([
             "move_left: [h, ArrowLeft]", "move_right: l", "move_up: k", "move_down: j",
+            "move_previous_sibling: (", "move_next_sibling: )",
             "edit: e", "add_comment: a", "open_help: ?", "cancel_command: Escape",
             "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds",
             "delete_comment: dc", "insert_before: ip", "insert_after: in", "insert_child: ic",
