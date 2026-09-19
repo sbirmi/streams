@@ -37,6 +37,24 @@ From the repository root, run:
 
 The script creates or reuses `.venv`, installs the pinned dependencies from `requirements.lock`, and runs the test suite. A successful run ends with `OK`.
 
+## Start the service locally
+
+From the repository root, run:
+
+```sh
+./scripts/run
+```
+
+The script creates or reuses `.venv`, installs the pinned dependencies, runs database migrations on startup, and starts Flask at <http://127.0.0.1:5000/>. Stop it with `Ctrl-C`.
+
+The default database is `data/stream.sqlite3`. For a different local address or database path, set environment variables before starting:
+
+```sh
+STREAM_HOST=0.0.0.0 STREAM_PORT=5000 STREAM_DATABASE_PATH=data/stream.sqlite3 ./scripts/run
+```
+
+Use `GET /healthz` for a basic health check. Do not bind to a public interface without first revisiting the trusted-network security model.
+
 ## Backup principle
 
 Back up the datastore as an application-consistent snapshot or through its supported dump mechanism. Test restoring into an isolated instance before relying on a backup. Record the last verified restore in the operational notes or deployment history.
