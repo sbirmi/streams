@@ -48,6 +48,55 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(context.exception.current["summary"], "New value")
         self.assertEqual(context.exception.current["revision"], 2)
 
+    def test_stream_delete_promotes_children_and_records_audit_history(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=parent["id"])
+        comment = self.repository.add_comment(parent["id"], "Keep the context", "alice")
+
+        deleted = self.repository.delete_stream(parent["id"], parent["revision"], "bob")
+
+        self.assertEqual(deleted["id"], parent["id"])
+        self.assertEqual(self.repository.get_stream(child["id"])["parent_stream_id"], None)
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(parent["id"])
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        self.assertIsNone(self.repository.list_history("stream", parent["id"])[-1]["after_value"])
+        self.assertIsNone(self.repository.list_history("comment", comment["id"])[-1]["after_value"])
+        self.assertEqual(self.repository.get_stream(child["id"])["revision"], 2)
+
+    def test_stream_delete_keeps_promoted_children_in_deleted_root_slot(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        before = self.repository.create_stream(bundle["id"], "Before", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        after = self.repository.create_stream(bundle["id"], "After", "alice")
+        first_child = self.repository.create_stream(bundle["id"], "First child", "alice", parent_stream_id=parent["id"])
+        second_child = self.repository.create_stream(bundle["id"], "Second child", "alice", parent_stream_id=parent["id"])
+
+        self.repository.delete_stream(parent["id"], parent["revision"], "bob")
+
+        streams = self.repository.list_streams(bundle["id"])
+        self.assertEqual(
+            [stream["id"] for stream in streams],
+            [before["id"], first_child["id"], second_child["id"], after["id"]],
+        )
+        self.assertEqual(
+            [stream["position"] for stream in streams],
+            [0, 1, 2, 3],
+        )
+
+    def test_stale_stream_delete_returns_current_value(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        self.repository.update_stream(stream["id"], 1, "alice", {"summary": "New value"})
+
+        with self.assertRaises(RevisionConflict) as context:
+            self.repository.delete_stream(stream["id"], 1, "bob")
+
+        self.assertEqual(context.exception.current["summary"], "New value")
+        self.assertEqual(self.repository.get_stream(stream["id"])["revision"], 2)
+
     def test_comments_are_independently_revisioned_and_append_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
@@ -58,6 +107,20 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(updated["revision"], 2)
         self.assertEqual(self.repository.get_stream(stream["id"])["revision"], 1)
         self.assertEqual(len(self.repository.list_history("comment", comment["id"])), 2)
+
+    def test_comment_delete_requires_current_revision_and_records_history(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        comment = self.repository.add_comment(stream["id"], "Left off at packaging", "alice")
+        self.repository.update_comment(comment["id"], 1, "alice", "Packaging is complete")
+
+        with self.assertRaises(RevisionConflict):
+            self.repository.delete_comment(comment["id"], 1, "bob")
+        self.repository.delete_comment(comment["id"], 2, "bob")
+
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        self.assertIsNone(self.repository.list_history("comment", comment["id"])[-1]["after_value"])
 
     def test_child_stream_must_belong_to_same_bundle(self) -> None:
         first = self.repository.create_bundle("First", "alice")
@@ -87,6 +150,27 @@ class DatabaseTestCase(unittest.TestCase):
 
         streams = self.repository.list_streams(bundle["id"])
         self.assertEqual([stream["id"] for stream in streams], [first["id"], middle["id"], last["id"]])
+
+    def test_rooted_view_context_rejects_sibling_insertion_at_root(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        root = self.repository.create_stream(bundle["id"], "Work", "alice")
+
+        with self.assertRaises(ValueError):
+            self.repository.create_stream(
+                bundle["id"], "Sibling", "alice", anchor_stream_id=root["id"],
+                placement="before", root_stream_id=root["id"],
+            )
+
+    def test_rooted_view_context_allows_child_and_descendant_sibling_insertion(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        root = self.repository.create_stream(bundle["id"], "Work", "alice")
+        child = self.repository.create_stream(bundle["id"], "Task", "alice", parent_stream_id=root["id"])
+
+        sibling = self.repository.create_stream(
+            bundle["id"], "Next task", "alice", parent_stream_id=root["id"], anchor_stream_id=child["id"],
+            placement="after", root_stream_id=root["id"],
+        )
+        self.assertEqual(sibling["parent_stream_id"], root["id"])
 
     def test_stream_priority_can_be_empty(self) -> None:
         bundle = self.repository.create_bundle("Index", "alice")

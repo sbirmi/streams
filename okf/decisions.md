@@ -30,3 +30,15 @@
 - **Status:** accepted for initial implementation
 - **Decision:** Keep schema changes as ordered SQL migrations. A repository layer owns SQL and short SQLite transactions; routes and future services do not manage raw connections directly.
 - **Reason:** This keeps the data boundary explicit, makes upgrades reviewable, and supports revision checks/history without coupling the UI to SQLite details.
+
+## D006 — Stream deletion promotes children and preserves audit history
+
+- **Status:** accepted for initial implementation
+- **Decision:** Deleting a stream removes only that stream. Its direct children are promoted to root-level streams, and its comments are deleted with it. The deletion requires the stream’s current revision. Delete history entries retain before snapshots for the stream, its deleted comments, and promoted children.
+- **Reason:** The existing foreign-key model uses `ON DELETE SET NULL` for `parent_stream_id` and `ON DELETE CASCADE` for comments. Promoting children avoids silently deleting a potentially large subtree while preserving the established hierarchy semantics.
+
+## D007 — Explicit insertion commands and rooted-view safety
+
+- **Status:** accepted for initial implementation
+- **Decision:** Use `ip`, `in`, and `ic` for insertion before, next, and child. A lone `i` is only a pending command. In a rooted view, sibling insertion at the focused root and toolbar root insertion are blocked in the client. The API accepts optional `root_stream_id` context and validates supplied anchors against that subtree.
+- **Reason:** Single-key insertion made the destination ambiguous, and creating a sibling of a rooted view made an invisible mutation. The current stateless trusted-network API cannot know a browser’s active rooted view when the optional context is omitted, so this is deliberately documented as view safety rather than authorization.

@@ -114,6 +114,7 @@ def register_routes(app: Flask) -> None:
             deadline=data.get("deadline"), snooze_until=data.get("snooze_until"),
             tags=data.get("tags", []), stream_id=data.get("id"),
             anchor_stream_id=data.get("anchor_stream_id"), placement=data.get("placement"),
+            root_stream_id=data.get("root_stream_id"),
         )
         return jsonify(stream=result), 201
 
@@ -134,6 +135,16 @@ def register_routes(app: Flask) -> None:
             raise ValueError("changes must be an object")
         return jsonify(stream=repository().update_stream(
             stream_id, expected_revision, actor(data), changes
+        ))
+
+    @app.delete("/api/streams/<stream_id>")
+    def delete_stream(stream_id: str) -> Response:
+        data = payload()
+        expected_revision = data.get("revision")
+        if not isinstance(expected_revision, int):
+            raise ValueError("revision is required")
+        return jsonify(deleted_stream=repository().delete_stream(
+            stream_id, expected_revision, actor(data)
         ))
 
     @app.get("/api/streams/<stream_id>/comments")
@@ -163,4 +174,14 @@ def register_routes(app: Flask) -> None:
         return jsonify(comment=repository().update_comment(
             comment_id, expected_revision, actor(data), body,
             sticky_note=data.get("sticky_note"),
+        ))
+
+    @app.delete("/api/comments/<comment_id>")
+    def delete_comment(comment_id: str) -> Response:
+        data = payload()
+        expected_revision = data.get("revision")
+        if not isinstance(expected_revision, int):
+            raise ValueError("revision is required")
+        return jsonify(deleted_comment=repository().delete_comment(
+            comment_id, expected_revision, actor(data)
         ))

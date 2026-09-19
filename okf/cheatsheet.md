@@ -18,6 +18,7 @@
 - Comments/updates are append-oriented.
 - Note writes use a revision precondition.
 - A stale write must produce a visible conflict, never a silent overwrite.
+- Deletion requires confirmation and a current revision; stale deletes produce the same visible conflict response.
 - URL access currently implies trusted read/write access.
 
 ## Release checklist

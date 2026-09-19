@@ -92,6 +92,7 @@ class Repository:
         stream_id: str | None = None,
         anchor_stream_id: str | None = None,
         placement: str | None = None,
+        root_stream_id: str | None = None,
     ) -> dict[str, Any]:
         stream_id = stream_id or new_id()
         timestamp = now()
@@ -99,6 +100,17 @@ class Repository:
         tags = list(tags)
         with self.database.transaction() as connection:
             self._require_bundle(connection, bundle_id)
+            if root_stream_id:
+                root = self._require_stream(connection, root_stream_id, bundle_id=bundle_id)
+                if placement in {"before", "after"}:
+                    if not anchor_stream_id or anchor_stream_id == root_stream_id or not self._is_within_root(
+                        connection, anchor_stream_id, root_stream_id
+                    ):
+                        raise ValueError("sibling insertion must remain inside the rooted view")
+                elif placement == "child" and parent_stream_id and not self._is_within_root(
+                    connection, parent_stream_id, root_stream_id
+                ):
+                    raise ValueError("child insertion must remain inside the rooted view")
             if parent_stream_id:
                 self._require_stream(connection, parent_stream_id, bundle_id=bundle_id)
             position = self._insertion_position(
@@ -185,6 +197,55 @@ class Repository:
             self._record_history(connection, "stream", stream_id, actor, current, updated)
             return updated
 
+    def delete_stream(self, stream_id: str, expected_revision: int, actor: str) -> dict[str, Any]:
+        """Delete one stream, promote its children to roots, and retain audit history."""
+
+        with self.database.transaction() as connection:
+            current = _decode(self._require_stream(connection, stream_id))
+            self._check_revision("stream", stream_id, current, expected_revision)
+            child_rows = connection.execute(
+                "SELECT * FROM streams WHERE parent_stream_id = ? ORDER BY position, created_at, id",
+                (stream_id,),
+            ).fetchall()
+            children = [_decode(row) for row in child_rows]
+            comment_rows = connection.execute(
+                "SELECT * FROM comments WHERE stream_id = ? ORDER BY created_at, id", (stream_id,)
+            ).fetchall()
+
+            # Record the related deletes before the foreign-key cascade removes comments.
+            for row in comment_rows:
+                self._record_history(connection, "comment", row["id"], actor, dict(row), None)
+
+            deleted_position = current["position"]
+            child_count = len(children)
+            position_delta = child_count - 1
+            connection.execute(
+                "UPDATE streams SET position = position + ? "
+                "WHERE parent_stream_id IS NULL AND position > ?",
+                (position_delta, deleted_position),
+            )
+            for child_index, child in enumerate(children):
+                promoted = dict(child)
+                promoted["parent_stream_id"] = None
+                promoted["position"] = deleted_position + child_index
+                promoted["updated_at"] = now()
+                promoted["revision"] = child["revision"] + 1
+                connection.execute(
+                    "UPDATE streams SET parent_stream_id = NULL, position = ?, updated_at = ?, revision = revision + 1 "
+                    "WHERE id = ?",
+                    (promoted["position"], promoted["updated_at"], child["id"]),
+                )
+                self._record_history(connection, "stream", child["id"], actor, child, promoted)
+
+            result = connection.execute(
+                "DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, expected_revision)
+            )
+            if result.rowcount != 1:
+                latest = _decode(self._require_stream(connection, stream_id))
+                raise RevisionConflict("stream", stream_id, latest)
+            self._record_history(connection, "stream", stream_id, actor, current, None)
+            return current
+
     def add_comment(self, stream_id: str, body: str, creator: str, comment_id: str | None = None,
                     sticky_note: bool = False) -> dict[str, Any]:
         comment_id = comment_id or new_id()
@@ -238,6 +299,19 @@ class Repository:
             updated = dict(self._require_comment(connection, comment_id))
             self._record_history(connection, "comment", comment_id, actor, current, updated)
             return updated
+
+    def delete_comment(self, comment_id: str, expected_revision: int, actor: str) -> dict[str, Any]:
+        with self.database.transaction() as connection:
+            current = dict(self._require_comment(connection, comment_id))
+            self._check_revision("comment", comment_id, current, expected_revision)
+            result = connection.execute(
+                "DELETE FROM comments WHERE id = ? AND revision = ?", (comment_id, expected_revision)
+            )
+            if result.rowcount != 1:
+                latest = dict(self._require_comment(connection, comment_id))
+                raise RevisionConflict("comment", comment_id, latest)
+            self._record_history(connection, "comment", comment_id, actor, current, None)
+            return current
 
     def list_history(self, object_type: str, object_id: str) -> list[dict[str, Any]]:
         with self.database.read() as connection:
@@ -302,6 +376,10 @@ class Repository:
             if current_id == ancestor_id:
                 return True
         return False
+
+    @classmethod
+    def _is_within_root(cls, connection: Any, stream_id: str, root_id: str) -> bool:
+        return stream_id == root_id or cls._is_descendant(connection, stream_id, root_id)
 
     @staticmethod
     def _check_revision(object_type: str, object_id: str, current: dict[str, Any], expected: int) -> None:

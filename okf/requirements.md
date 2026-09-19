@@ -30,6 +30,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R21 — Pointer support:** Core navigation and editing actions work with mouse/pointer controls as well as keyboard shortcuts.
 - **R22 — Insertion and movement:** Users can insert an item before, after, or beneath another item, and move existing items around using keyboard and/or pointer interactions.
 - **R23 — Reordering usability:** After insertion or movement, the UI preserves context and makes the resulting position clear.
+- **R27 — Safe deletion:** A user can confirm deletion of a focused stream or comment through a two-key command, with revision-checked server-side deletion and visible conflicts for stale data.
 
 ## Non-functional
 

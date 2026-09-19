@@ -46,6 +46,7 @@ The first screen under review is intentionally narrow in scope:
 - Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail begins 10px below the stream row’s top edge, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. Long comment bodies are visibly truncated with a multiline ellipsis; the complete text is reserved for the future modal. It has no decorative separator line.
 - Horizontal focus can move from stream content into the comment rail with `h`/`l` or the left/right arrows. The focused comment is highlighted and scrolled into view; vertical movement preserves the comment index when possible.
 - `Z Enter` or double-clicking a stream opens that stream as the current rooted view; `Z Backspace` returns to its parent or the `Index` root.
+- In a rooted view, inserting before or after the focused view root is blocked because it would create an invisible sibling outside the view. Adding a root stream from the toolbar is blocked for the same reason; inserting a child remains available.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 
 ## Primary hierarchy
@@ -126,3 +127,5 @@ Exact keys, discoverability, focus behavior, and customization remain open. Shor
 - Avoid requiring drag-and-drop for core operations; keyboard and ordinary controls must provide an equivalent path.
 - Preserve focus, scroll position, and the selected item after insertion or movement.
 - For keyboard insertion, render and scroll the insertion placeholder before opening the stream editor modal. Child insertion must show its placeholder even when the focused parent is currently collapsed.
+- Deletion is a confirmed action: `d` shows a pending command state and only `d s` or `d c` opens the appropriate confirmation modal. The modal explains that deleting a stream promotes its direct children to root-level streams and removes its comments. A stale delete leaves the modal open with a conflict message.
+- Each stream row exposes an accessible delete button on hover, selection, or keyboard focus. It opens the same confirmation modal as `d s`, so pointer users have an equivalent stream-deletion path.

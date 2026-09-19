@@ -13,6 +13,8 @@ Each independently editable object (stream, comment, and eventually other editab
 
 This prevents silent last-write-wins clobbering without requiring locks or user accounts. Editing a stream should not block someone else from editing a different stream or comment.
 
+Deletion uses the same revision precondition as editing. A stale stream or comment delete returns the normal conflict response with the current representation; it never removes newer data. Successful deletions retain before snapshots in history, and stream deletion records the promotion of direct children as separate stream changes.
+
 ## UI edit awareness
 
 The UI should show a lightweight “being edited” indicator when another browser has an active edit session for the same object. This is an advisory presence/soft-lock signal, not the correctness mechanism: it may expire, disappear, or be stale, and the revision check remains authoritative. The initial implementation can use short-lived heartbeats or another simple presence mechanism; it does not need full real-time collaboration.

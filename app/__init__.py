@@ -11,7 +11,7 @@ from .repositories import Repository
 from .routes import register_routes
 
 
-DEFAULT_SHORTCUTS = {"insert_before": "i", "insert_after": "o", "insert_child": "O"}
+DEFAULT_SHORTCUTS = {"insert_before": "ip", "insert_after": "in", "insert_child": "ic"}
 
 
 def load_shortcuts(path: str) -> dict[str, str]:
@@ -27,8 +27,8 @@ def load_shortcuts(path: str) -> dict[str, str]:
             if not separator or key.strip() not in DEFAULT_SHORTCUTS:
                 raise ValueError(f"invalid shortcut entry: {line}")
             value = value.strip()
-            if len(value) != 1:
-                raise ValueError(f"shortcut must be one key: {line}")
+            if len(value) != 2:
+                raise ValueError(f"insertion shortcut must be a two-key command: {line}")
             shortcuts[key.strip()] = value
     except (OSError, ValueError) as error:
         # Defaults keep a missing or invalid local config from preventing startup.

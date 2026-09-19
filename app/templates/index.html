@@ -48,6 +48,14 @@
         <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-comment">Cancel</button><button type="submit">Add comment</button></div>
       </form>
     </dialog>
+    <dialog id="delete-dialog" class="editor-dialog">
+      <form id="delete-form" method="dialog">
+        <div class="dialog-heading"><h2 id="delete-title">Delete item?</h2><button class="icon-button" type="button" data-action="close-delete" aria-label="Close">×</button></div>
+        <p id="delete-message" class="editor-placement"></p>
+        <p id="delete-error" class="form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-delete">Cancel</button><button class="danger-button" type="submit">Delete</button></div>
+      </form>
+    </dialog>
     <dialog id="shortcuts-dialog" class="shortcuts-dialog">
       <div class="dialog-heading"><h2>Keyboard shortcuts</h2><button class="icon-button" type="button" data-action="close-shortcuts" aria-label="Close">×</button></div>
       <dl class="shortcut-list">
@@ -57,10 +65,12 @@
         <div><dt><kbd>z O</kbd> / <kbd>z C</kbd></dt><dd>Open or close descendants</dd></div>
         <div><dt><kbd>z a</kbd></dt><dd>Toggle the focused hierarchy</dd></div>
         <div><dt><kbd>e</kbd></dt><dd>Edit the focused stream</dd></div>
+        <div><dt><kbd>d s</kbd></dt><dd>Delete the focused stream</dd></div>
+        <div><dt><kbd>d c</kbd></dt><dd>Delete the focused comment</dd></div>
         <div><dt><kbd>a</kbd></dt><dd>Add a comment</dd></div>
-        <div><dt><kbd>i</kbd></dt><dd>Insert before the focused stream</dd></div>
-        <div><dt><kbd>o</kbd></dt><dd>Insert after the focused stream</dd></div>
-        <div><dt><kbd>O</kbd></dt><dd>Insert a child stream</dd></div>
+        <div><dt><kbd>i p</kbd></dt><dd>Insert before the focused stream</dd></div>
+        <div><dt><kbd>i n</kbd></dt><dd>Insert after the focused stream</dd></div>
+        <div><dt><kbd>i c</kbd></dt><dd>Insert a child stream</dd></div>
         <div><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
       </dl>
     </dialog>

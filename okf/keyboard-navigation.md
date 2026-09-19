@@ -57,25 +57,27 @@ The object under focus determines which modal opens:
 
 The modal must trap focus, support `Escape`, and return focus to the original stream/comment after close or save. A failed or stale save must return focus with the conflict state visible.
 
+The stream row’s accessible delete button is the pointer equivalent of `d s` and uses the same confirmation and conflict handling.
+
 ## Creating and moving streams
 
-The product needs commands for inserting a stream above, below, or beneath the focused stream. A possible first vocabulary is:
+The product uses explicit two-key commands for inserting a stream above, below, or beneath the focused stream:
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `i` | Add a stream before the focused stream | “Insert” before. |
-| `o` | Add a stream after/below the focused stream at the same level | Folding uses the separate `z` prefix. |
-| `O` | Add a child stream below the focused stream | Creates the next indented item. |
+| `ip` | Add a stream before the focused stream | `i` alone only shows pending-command feedback. |
+| `in` | Add a stream after/below the focused stream at the same level | |
+| `ic` | Add a child stream below the focused stream | Creates the next indented item. |
 | `> >` | Indent/move the focused stream beneath its previous sibling | The two `>` keys must arrive as a quick sequence. |
 | `< <` | Outdent/move the focused stream to its parent’s level | The two `<` keys must arrive as a quick sequence. |
 
-`i`/`o`/`O` mirror the familiar insert-before, insert-after, and insert-child distinction. `>>`/`<<` avoid taking over Tab and Shift-Tab, which remain available for browser and accessibility focus movement. They also fit the visual language of moving a stream right or left. Each sequence should show its pending state and cancel on `Escape`.
+The `ip`/`in`/`ic` family makes the insertion destination explicit and prevents a lone `i` from mutating data. Each sequence shows its pending state and cancels on `Escape`.
 
-When the current view has no focused stream, `O` is a no-op because there is no parent for a child insertion. `i` and `o` may still create a root-level stream from the empty `Index` view.
+When the current view has no focused stream, `ic` is a no-op because there is no parent for a child insertion. In a rooted view, `ip` and `in` are blocked when the focused stream is the view root because their siblings would be outside the visible subtree. `ic` remains allowed. The toolbar root-add action is also blocked in a rooted view.
 
 Moving and inserting must have mouse/pointer equivalents and must preserve selection, focus, and scroll position.
 
-When `i`, `o`, or `O` starts insertion, the UI renders and scrolls the insertion placeholder into view before opening the stream editor modal. The placeholder remains visible behind the modal and identifies the exact destination; `O` must expose that placeholder even if the focused parent was collapsed.
+When `ip`, `in`, or `ic` starts insertion, the UI renders and scrolls the insertion placeholder into view before opening the stream editor modal. The placeholder remains visible behind the modal and identifies the exact destination; `ic` must expose that placeholder even if the focused parent was collapsed.
 
 Double-clicking a stream row is the pointer equivalent of `Z Enter`. Re-rooting changes the visible subtree but does not change stream hierarchy or folding state.
 
@@ -118,13 +120,15 @@ The HUD should:
 - optionally support Backspace to remove the last prefix key;
 - time out an abandoned prefix after a short, visible interval.
 
-The same feedback model applies to `>>`, `<<`, `ds`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
+The same feedback model applies to `ip`, `in`, `ic`, `ds`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
+
+After confirmation, deletion sends the focused object’s revision to the API. On success, the UI refreshes the list and restores focus to the nearest surviving stream; for a comment, focus remains on its stream. On a stale response, the confirmation modal remains open and explains that the current item must be reviewed before retrying.
 
 The `Z` prefix uses the same feedback model and accepts `Enter` or `Backspace` as its second key. A pending `Z` must not change the view until the second key arrives.
 
 ## Shortcut configuration
 
-The default shortcut map lives in [`config/shortcuts.yaml`](../config/shortcuts.yaml) rather than being customized through the UI. Configuration changes take effect after an application restart. The initial implementation uses a small flat YAML map for `insert_before`, `insert_after`, and `insert_child`; missing or invalid files fall back to the documented defaults and emit a warning.
+The default shortcut map lives in [`config/shortcuts.yaml`](../config/shortcuts.yaml) rather than being customized through the UI. Configuration changes take effect after an application restart. The flat YAML map retains the `insert_before`, `insert_after`, and `insert_child` keys, whose values are now two-key commands. Missing or invalid files, including legacy one-key insertion values, fall back to the documented defaults and emit a warning; this deliberate compatibility behavior avoids silently reintroducing single-key mutations.
 
 ## Open questions
 
