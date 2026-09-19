@@ -22,6 +22,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Test Stream", response.data)
         self.assertIn(b"Loading streams", response.data)
+        self.assertIn(b'data-action="copy-link"', response.data)
         self.assertIn(b'value="manual">Manual order', response.data)
 
     def test_health_endpoint_returns_ok_and_request_id(self) -> None:

@@ -18,6 +18,7 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Add shareable rooted-view permalinks.** Added URL-driven root/view/stream-or-comment focus state, Copy link support, and per-root/view client presentation persistence.
 - [x] **Add order-preserving sibling keys.** Replaced dense position handling with server-controlled numeric `order_key` gaps, midpoint insertion, migration/resequencing, and a read-only modal display.
 
 - [x] **Add stream owners and deadlines.** Added normalized owner/deadline persistence, create/edit modal fields, compact row metadata, validation, and tests.

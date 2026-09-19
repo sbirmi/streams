@@ -50,3 +50,7 @@
 ## Numeric sibling order keys
 
 Streams preserve hierarchy order with a server-controlled integer `order_key` for each sibling list. New items use gaps of 1000, middle insertion uses a midpoint, and a sibling list is resequenced only when no integer gap remains. This keeps common insertion writes small while retaining a simple SQLite sort. The value is informational in the modal and is not an editable API field.
+
+## Shareable rooted-view URLs
+
+Shareable navigation state uses stable stream/comment identifiers in query parameters: `root`, `view`, and typed `focus`. The index is represented by omitting `root`. Client-local presentation state, including expansion and scroll preferences, is stored separately per root/view context so different users can retain their own layout without making links noisy or user-specific.

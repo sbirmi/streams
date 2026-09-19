@@ -1,7 +1,15 @@
 (() => {
   "use strict";
 
-  const state = { bundle: null, streams: [], selected: null, rootPath: [], focusColumn: "stream", commentIndex: 0, view: "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {} };
+  const validViews = new Set(["priority", "recent", "manual", "stale"]);
+  const urlState = { hasRoot: false, hasView: false, hasFocus: false, root: null, view: null, focus: null };
+  function readUrlState(url = new URL(window.location.href)) {
+    const params = url.searchParams;
+    urlState.hasRoot = params.has("root"); urlState.hasView = params.has("view"); urlState.hasFocus = params.has("focus");
+    urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus");
+  }
+  readUrlState();
+  const state = { bundle: null, streams: [], selected: null, rootPath: [], focusColumn: "stream", commentIndex: 0, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {}, presentationLoaded: false };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -11,6 +19,57 @@
   const shortcutsDialog = document.querySelector("#shortcuts-dialog");
   const shortcutList = document.querySelector("#shortcut-list");
   const commandHud = document.querySelector("#command-hud");
+
+  function presentationKey() { return `streams:view-state:${currentRootId() || "index"}:${state.view}`; }
+  function readPresentation() { try { return JSON.parse(localStorage.getItem(presentationKey()) || "{}"); } catch (_) { return {}; } }
+  function writePresentation() {
+    try {
+      const expanded = Object.fromEntries(state.streams.map((stream) => [stream.id, stream.expanded !== false]));
+      localStorage.setItem(presentationKey(), JSON.stringify({ expanded, selected: state.selected, focusColumn: state.focusColumn, commentIndex: state.commentIndex }));
+    } catch (_) { /* localStorage may be unavailable in private or restricted contexts. */ }
+  }
+  function focusParam() {
+    const comment = selectedComment();
+    return state.focusColumn === "comments" && comment ? `comment:${comment.id}` : state.selected ? `stream:${state.selected}` : null;
+  }
+  function updateUrl(historyMode = "replace") {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("root"); url.searchParams.delete("view"); url.searchParams.delete("focus");
+    const rootId = currentRootId();
+    if (rootId) url.searchParams.set("root", rootId);
+    url.searchParams.set("view", state.view);
+    const focus = focusParam();
+    if (focus) url.searchParams.set("focus", focus);
+    window.history[`${historyMode}State`](null, "", `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  }
+  function savePresentationAndUrl(historyMode = "replace") { writePresentation(); updateUrl(historyMode); }
+  function applyPresentation() {
+    const saved = readPresentation();
+    const expanded = saved.expanded || {};
+    state.streams.forEach((stream) => { if (typeof expanded[stream.id] === "boolean") stream.expanded = expanded[stream.id]; });
+    if (!urlState.hasFocus && saved.selected && currentRootItems().some((stream) => stream.id === saved.selected)) {
+      state.selected = saved.selected;
+      state.focusColumn = saved.focusColumn === "comments" ? "comments" : "stream";
+      state.commentIndex = Number.isInteger(saved.commentIndex) ? saved.commentIndex : 0;
+    }
+    state.presentationLoaded = true;
+  }
+  function applyUrlState() {
+    const root = urlState.root && selectedStreamById(urlState.root);
+    state.rootPath = root ? [root.id] : [];
+    const rootItems = currentRootItems();
+    if (!state.selected || !rootItems.some((stream) => stream.id === state.selected)) state.selected = rootItems[0]?.id || null;
+    state.focusColumn = "stream"; state.commentIndex = 0;
+    if (!urlState.hasFocus) return;
+    const focus = urlState.focus || "";
+    const [type, id] = focus.split(":", 2);
+    if (type === "stream" && currentRootItems().some((stream) => stream.id === id)) { state.selected = id; state.focusColumn = "stream"; state.commentIndex = 0; return; }
+    if (type === "comment") {
+      const stream = currentRootItems().find((item) => (item.comments || []).some((comment) => comment.id === id));
+      const index = stream?.comments?.findIndex((comment) => comment.id === id) ?? -1;
+      if (stream && index >= 0) { state.selected = stream.id; state.focusColumn = "comments"; state.commentIndex = index; }
+    }
+  }
 
   async function api(path, options = {}) {
     const response = await fetch(path, { headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
@@ -77,11 +136,11 @@
     const path = state.rootPath.map((id) => selectedStreamById(id)?.summary).filter(Boolean);
     document.querySelector("#bundle-name").textContent = path.length ? ["Index", ...path].join(" / ") : state.bundle?.name || "Index";
   }
-  function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; } render(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
+  function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; } render(); savePresentationAndUrl(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
   function moveVertical(direction) { const items = navigationItems(); const index = items.findIndex((stream) => stream.id === state.selected); const target = items[Math.max(0, Math.min(items.length - 1, index + direction))]; if (target) { const preserve = state.focusColumn === "comments" && (target.comments || []).length; state.commentIndex = preserve ? Math.min(state.commentIndex, target.comments.length - 1) : 0; select(target.id, Boolean(preserve)); } }
-  function moveHorizontal(direction) { const stream = selectedStream(); if (!stream) return; const count = (stream.comments || []).length; if (direction > 0 && state.focusColumn === "stream" && count) state.focusColumn = "comments"; else if (direction > 0 && state.focusColumn === "comments") state.commentIndex = Math.min(state.commentIndex + 1, count - 1); else if (direction < 0 && state.focusColumn === "comments" && state.commentIndex > 0) state.commentIndex -= 1; else if (direction < 0) state.focusColumn = "stream"; render(); document.querySelector(`[data-id="${CSS.escape(state.selected || "")}"]`)?.scrollIntoView({ block: "nearest" }); }
+  function moveHorizontal(direction) { const stream = selectedStream(); if (!stream) return; const count = (stream.comments || []).length; if (direction > 0 && state.focusColumn === "stream" && count) state.focusColumn = "comments"; else if (direction > 0 && state.focusColumn === "comments") state.commentIndex = Math.min(state.commentIndex + 1, count - 1); else if (direction < 0 && state.focusColumn === "comments" && state.commentIndex > 0) state.commentIndex -= 1; else if (direction < 0) state.focusColumn = "stream"; render(); savePresentationAndUrl(); document.querySelector(`[data-id="${CSS.escape(state.selected || "")}"]`)?.scrollIntoView({ block: "nearest" }); }
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
-  function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); }
+  function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
   const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy" };
   function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
@@ -96,7 +155,7 @@
   function insertionBlocked(placement) { return (placement === "before" || placement === "after") && currentRootId() && selectedStream()?.id === currentRootId(); }
   function showInsertionBlocked() { showCommandHud("Cannot insert beside the rooted stream; use ic to add a child"); }
   function requestRootInsertion() { if (currentRootId()) { showCommandHud("Cannot add a root stream while viewing a rooted stream"); return; } openEditor(null, "root"); }
-  function enterRoot() { const stream = selectedStream(); if (!stream || currentRootId() === stream.id) return; state.rootPath.push(stream.id); state.selected = stream.id; state.focusColumn = "stream"; state.commentIndex = 0; updateRootLabel(); render(); }
+  function enterRoot() { const stream = selectedStream(); if (!stream || currentRootId() === stream.id) return; state.rootPath.push(stream.id); state.selected = stream.id; state.focusColumn = "stream"; state.commentIndex = 0; updateRootLabel(); render(); savePresentationAndUrl("push"); }
   function popRoot() {
     if (!state.rootPath.length) return;
     const previousSelection = state.selected;
@@ -113,6 +172,22 @@
     state.commentIndex = 0;
     updateRootLabel();
     render();
+    savePresentationAndUrl("push");
+  }
+  function restoreFromHistory() {
+    readUrlState();
+    state.view = urlState.view || "priority";
+    applyUrlState();
+    applyPresentation();
+    document.querySelector("#view-select").value = state.view;
+    updateRootLabel();
+    render();
+    writePresentation();
+    requestAnimationFrame(() => {
+      const row = state.selected && document.querySelector(`[data-id="${CSS.escape(state.selected)}"]`);
+      row?.scrollIntoView({ block: "nearest" });
+      restoreCommentFocus();
+    });
   }
   function openEditor(stream = null, placement = null) { state.editing = stream; state.editingPlacement = placement; state.pendingInsert = stream ? null : { placement: placement || "root", anchorId: state.selected }; render(); document.querySelector("#editor-title").textContent = stream ? "Edit stream" : "Add stream"; document.querySelector("#editor-placement").textContent = stream ? "" : ({ before: "Inserting before the focused stream", after: "Inserting after the focused stream", child: "Inserting as a child of the focused stream", root: "Adding a root stream" }[placement || "root"]); document.querySelector("#editor-summary").value = stream?.summary || ""; document.querySelector("#editor-description").value = stream?.description || ""; document.querySelector("#editor-owners").value = (stream?.owners || []).join(", "); document.querySelector("#editor-priority").value = stream ? (stream.priority ?? "") : ""; document.querySelector("#editor-deadline").value = displayDeadline(stream?.deadline); document.querySelector("#editor-order-key").value = stream?.order_key ?? ""; document.querySelector("#editor-tags").value = (stream?.tags || []).join(", "); document.querySelector("#editor-error").textContent = ""; const placeholder = document.querySelector(".is-placeholder"); placeholder?.scrollIntoView({ block: "center" }); if (!editorDialog.open) editorDialog.showModal(); requestAnimationFrame(() => document.querySelector("#editor-summary").focus()); }
   async function submitStream(event) { event.preventDefault(); const stream = state.editing; const priorityValue = document.querySelector("#editor-priority").value; const owners = document.querySelector("#editor-owners").value.split(",").map((owner) => owner.trim()).filter(Boolean); const deadline = document.querySelector("#editor-deadline").value || null; const tags = document.querySelector("#editor-tags").value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean); const changes = { summary: document.querySelector("#editor-summary").value.trim(), description: document.querySelector("#editor-description").value, owners, priority: priorityValue === "" ? null : Number(priorityValue), deadline, tags }; try { if (stream) await api(`/api/streams/${stream.id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: stream.revision, changes }) }); else { if (!state.bundle) state.bundle = (await api("/api/bundles", { method: "POST", body: JSON.stringify({ name: "Index", actor: actor() }) })).bundle; const siblingInsertion = state.editingPlacement === "before" || state.editingPlacement === "after"; await api(`/api/bundles/${state.bundle.id}/streams`, { method: "POST", body: JSON.stringify({ actor: actor(), ...changes, parent_stream_id: state.editingPlacement === "child" ? state.selected : siblingInsertion ? selectedStream()?.parent_stream_id : null, anchor_stream_id: siblingInsertion ? state.selected : null, placement: state.editingPlacement === "root" ? null : state.editingPlacement, root_stream_id: currentRootId() }) }); } state.pendingInsert = null; editorDialog.close(); await loadStreams(); document.querySelector("#status-message").textContent = stream ? "Stream saved" : "Stream added"; } catch (error) { document.querySelector("#editor-error").textContent = error.message; } }
@@ -152,15 +227,17 @@
       document.querySelector("#delete-error").textContent = error.status === 409 ? "This item changed elsewhere. Close this dialog, refresh, and review the current item before deleting." : error.message;
     }
   }
-  async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; render(); return; } const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: stream.expanded !== false })); state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; updateRootLabel(); render(); }
-  async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = shortcutBody.shortcuts; renderShortcutHelp(); const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
+  async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; render(); return; } const previousExpanded = Object.fromEntries(state.streams.map((stream) => [stream.id, stream.expanded])); const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: previousExpanded[stream.id] ?? (stream.expanded !== false) })); state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; if (!state.presentationLoaded) { applyUrlState(); applyPresentation(); } updateRootLabel(); render(); savePresentationAndUrl(); }
+  async function copyLink() { const link = new URL(window.location.href).toString(); try { await navigator.clipboard.writeText(link); } catch (_) { const input = document.createElement("input"); input.value = link; document.body.appendChild(input); input.select(); document.execCommand("copy"); input.remove(); } const button = document.querySelector('[data-action="copy-link"]'); const original = button.textContent; button.textContent = "Copied"; setTimeout(() => { button.textContent = original; }, 1400); }
+  async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = shortcutBody.shortcuts; renderShortcutHelp(); const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; document.querySelector("#view-select").value = state.view; updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
 
-  list.addEventListener("click", (event) => { const row = event.target.closest(".stream-row"); const toggle = event.target.closest("[data-toggle]"); const edit = event.target.closest("[data-edit]"); const commentEdit = event.target.closest("[data-edit-comment]"); const deletion = event.target.closest("[data-delete]"); const comment = event.target.closest("[data-comment]"); if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); if (stream) { stream.expanded = stream.expanded === false; render(); } return; } if (edit) { select(edit.dataset.edit); openEditor(selectedStream()); return; } if (commentEdit) { const card = event.target.closest(".comment-card"); const stream = event.target.closest(".stream-row"); const comment = stream && state.streams.find((item) => item.id === stream.dataset.id)?.comments?.find((item) => item.id === commentEdit.dataset.editComment); if (card && stream && comment) { state.selected = stream.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); openCommentEditor(comment); } return; } if (deletion) { select(deletion.dataset.delete); openDelete(selectedStream(), "stream"); return; } if (comment) { select(comment.dataset.comment); openComment(); return; } const card = event.target.closest(".comment-card"); if (card && row) { state.selected = row.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); render(); return; } if (row) select(row.dataset.id); });
+  list.addEventListener("click", (event) => { const row = event.target.closest(".stream-row"); const toggle = event.target.closest("[data-toggle]"); const edit = event.target.closest("[data-edit]"); const commentEdit = event.target.closest("[data-edit-comment]"); const deletion = event.target.closest("[data-delete]"); const comment = event.target.closest("[data-comment]"); if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); if (stream) { stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); } return; } if (edit) { select(edit.dataset.edit); openEditor(selectedStream()); return; } if (commentEdit) { const card = event.target.closest(".comment-card"); const stream = event.target.closest(".stream-row"); const comment = stream && state.streams.find((item) => item.id === stream.dataset.id)?.comments?.find((item) => item.id === commentEdit.dataset.editComment); if (card && stream && comment) { state.selected = stream.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); savePresentationAndUrl(); openCommentEditor(comment); } return; } if (deletion) { select(deletion.dataset.delete); openDelete(selectedStream(), "stream"); return; } if (comment) { select(comment.dataset.comment); openComment(); return; } const card = event.target.closest(".comment-card"); if (card && row) { state.selected = row.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); render(); savePresentationAndUrl(); return; } if (row) select(row.dataset.id); });
   list.addEventListener("dblclick", (event) => { const row = event.target.closest(".stream-row"); if (row) { select(row.dataset.id); enterRoot(); } });
-  document.querySelector("#view-select").addEventListener("change", (event) => { state.view = event.target.value; render(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
+  document.querySelector("#view-select").addEventListener("change", (event) => { state.view = validViews.has(event.target.value) ? event.target.value : "priority"; applyPresentation(); render(); savePresentationAndUrl(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
+  window.addEventListener("popstate", restoreFromHistory);
   username.addEventListener("change", saveUsername); username.addEventListener("blur", saveUsername);
   document.querySelector("#editor-form").addEventListener("submit", submitStream); document.querySelector("#comment-form").addEventListener("submit", submitComment); document.querySelector("#delete-form").addEventListener("submit", submitDelete);
-  document.querySelector('[data-action="add-stream"]').addEventListener("click", requestRootInsertion); document.querySelector('[data-action="refresh"]').addEventListener("click", loadStreams); document.querySelector('[data-action="shortcuts"]').addEventListener("click", () => shortcutsDialog.showModal()); document.querySelector('[data-action="close-shortcuts"]').addEventListener("click", () => shortcutsDialog.close());
+  document.querySelector('[data-action="add-stream"]').addEventListener("click", requestRootInsertion); document.querySelector('[data-action="copy-link"]').addEventListener("click", copyLink); document.querySelector('[data-action="refresh"]').addEventListener("click", loadStreams); document.querySelector('[data-action="shortcuts"]').addEventListener("click", () => shortcutsDialog.showModal()); document.querySelector('[data-action="close-shortcuts"]').addEventListener("click", () => shortcutsDialog.close());
   document.querySelectorAll('[data-action="close-editor"]').forEach((button) => button.addEventListener("click", () => editorDialog.close())); document.querySelectorAll('[data-action="close-comment"]').forEach((button) => button.addEventListener("click", () => commentDialog.close())); document.querySelectorAll('[data-action="close-delete"]').forEach((button) => button.addEventListener("click", () => deleteDialog.close()));
   commentDialog.addEventListener("close", () => { state.editing = null; state.commentEditing = null; requestAnimationFrame(restoreCommentFocus); });
   editorDialog.addEventListener("close", () => { if (!state.editing) { state.pendingInsert = null; render(); } state.editing = null; state.editingPlacement = null; });

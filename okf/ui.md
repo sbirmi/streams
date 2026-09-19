@@ -50,6 +50,9 @@ The first screen under review is intentionally narrow in scope:
 - `Z Enter` or double-clicking a stream opens that stream as the current rooted view; `Z Backspace` returns to its parent or the `Index` root while preserving focus on the most recently selected stream when it still exists in the newly visible subtree. If that stream was deleted or is otherwise unavailable, focus moves to a safe visible fallback.
 - In a rooted view, inserting before or after the focused view root is blocked because it would create an invisible sibling outside the view. Adding a root stream from the toolbar is blocked for the same reason; inserting a child remains available.
 - The keyboard-help dialog is generated from the complete server-loaded shortcut map, so configured aliases and sequences remain discoverable without a second hardcoded shortcut list.
+- The current rooted view can be shared with a permalink. The URL uses `root=<stream-id>` for a rooted stream, `view=priority|recent|manual|stale` for the selected view, and `focus=stream:<stream-id>` or `focus=comment:<comment-id>` for the focused target. The index root is represented by omitting `root`.
+- The URL carries shareable navigation state only. Personal presentation state such as expansion/collapse, local focus restoration, and comment-rail position is persisted client-side per root/view context, with explicit URL parameters taking precedence.
+- A visible Copy link action copies the canonical current rooted-view URL. Browser history updates preserve the URL as navigation state without requiring a full page reload.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 
 ## Primary hierarchy
