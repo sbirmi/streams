@@ -36,6 +36,8 @@ When moving vertically, preserve the current comment index where possible. If th
 | `End` / `G` | Last visible item | `G` is a possible vi-style alias. |
 | `PageUp` / `PageDown` | Move by a viewport | Preserve the focus column. |
 | `/` | Focus search/filter | Do not intercept while editing text. |
+| `Z Enter` | Re-root the view at the focused stream | The focused stream becomes the current view root. |
+| `Z Backspace` | Pop the current view root | Returns to the parent stream or `Index`; no-op at `Index`. |
 | `?` | Open shortcut help | Existing prototype behavior. |
 | `Escape` | Leave modal or restore row focus | Modal focus is restored to the object that opened it. |
 
@@ -69,7 +71,11 @@ The product needs commands for inserting a stream above, below, or beneath the f
 
 `i`/`o`/`O` mirror the familiar insert-before, insert-after, and insert-child distinction. `>>`/`<<` avoid taking over Tab and Shift-Tab, which remain available for browser and accessibility focus movement. They also fit the visual language of moving a stream right or left. Each sequence should show its pending state and cancel on `Escape`.
 
+When the current view has no focused stream, `O` is a no-op because there is no parent for a child insertion. `i` and `o` may still create a root-level stream from the empty `Index` view.
+
 Moving and inserting must have mouse/pointer equivalents and must preserve selection, focus, and scroll position.
+
+Double-clicking a stream row is the pointer equivalent of `Z Enter`. Re-rooting changes the visible subtree but does not change stream hierarchy or folding state.
 
 ## Folding and expanding
 
@@ -111,6 +117,8 @@ The HUD should:
 - time out an abandoned prefix after a short, visible interval.
 
 The same feedback model applies to `>>`, `<<`, `ds`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
+
+The `Z` prefix uses the same feedback model and accepts `Enter` or `Backspace` as its second key. A pending `Z` must not change the view until the second key arrives.
 
 ## Shortcut configuration
 

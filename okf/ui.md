@@ -44,6 +44,7 @@ The first screen under review is intentionally narrow in scope:
 - Each stream row has a compact pencil affordance at the end of its summary line for opening a future full-detail edit modal. The modal’s layout and fields are out of scope for this prototype pass.
 - Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail begins 10px below the stream row’s top edge, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. Long comment bodies are visibly truncated with a multiline ellipsis; the complete text is reserved for the future modal. It has no decorative separator line.
 - Horizontal focus can move from stream content into the comment rail with `h`/`l` or the left/right arrows. The focused comment is highlighted and scrolled into view; vertical movement preserves the comment index when possible.
+- `Z Enter` or double-clicking a stream opens that stream as the current rooted view; `Z Backspace` returns to its parent or the `Index` root.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 
 ## Primary hierarchy
