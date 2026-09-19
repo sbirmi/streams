@@ -21,7 +21,7 @@ class ApplicationShellTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Test Stream", response.data)
-        self.assertIn(b"Your streams will appear here", response.data)
+        self.assertIn(b"Loading streams", response.data)
 
     def test_health_endpoint_returns_ok_and_request_id(self) -> None:
         response = self.client.get("/healthz")

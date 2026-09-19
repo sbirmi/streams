@@ -9,25 +9,55 @@
     <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
   </head>
   <body>
-    <main class="shell">
-      <header class="app-header">
-        <div>
-          <p class="eyebrow">Shared notes</p>
-          <h1>{{ app_name }}</h1>
-        </div>
-        <div class="identity" aria-label="Current username">
-          <label for="username">Username</label>
-          <input id="username" name="username" type="text" placeholder="e.g. alex" autocomplete="nickname">
-        </div>
-      </header>
-
-      <section class="empty-state" aria-labelledby="welcome-title">
-        <p class="eyebrow">Application shell</p>
-        <h2 id="welcome-title">Your streams will appear here.</h2>
-        <p>The first build establishes the fast, shared workspace. Bundles, streams, comments, and views will be added next.</p>
-        <button type="button" data-action="create-placeholder">Add a stream</button>
-      </section>
+    <main class="app-shell">
+      <div class="app-chrome">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">S</span><span class="brand-copy"><span class="brand-prefix">streams :</span> <span id="bundle-name" class="breadcrumb">Loading…</span></span></div>
+          <div class="topbar-actions">
+            <label class="username-field"><span class="sr-only">Your username</span><input id="username" type="text" value="alex" placeholder="username" autocomplete="nickname"></label>
+            <button class="icon-button" type="button" title="Keyboard shortcuts" data-action="shortcuts">?</button>
+          </div>
+        </header>
+        <section class="viewbar" aria-label="Viewbar controls">
+          <label class="search-control"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Filter streams" autocomplete="off"></label>
+          <div class="toolbar-controls"><label class="compact-control"><span class="sr-only">View</span><select id="view-select"><option value="priority">Priority</option><option value="recent">Recently touched</option><option value="stale">Stale</option></select></label><button class="secondary-button" type="button" data-action="add-stream">Add stream</button></div>
+          <div id="toolbar-stats" class="toolbar-stats">Loading streams…</div>
+        </section>
+      </div>
+      <section id="stream-list" class="stream-list" aria-label="Streams" tabindex="0"><div class="empty-filter">Loading streams…</div></section>
+      <footer class="prototype-footer"><span id="status-message">Shared workspace</span><button type="button" data-action="refresh">Refresh</button></footer>
     </main>
+
+    <dialog id="editor-dialog" class="editor-dialog">
+      <form id="editor-form" method="dialog">
+        <div class="dialog-heading"><h2 id="editor-title">Edit stream</h2><button class="icon-button" type="button" data-action="close-editor" aria-label="Close">×</button></div>
+        <label>Summary<input id="editor-summary" name="summary" required></label>
+        <label>Description<textarea id="editor-description" name="description" rows="7"></textarea></label>
+        <label>Priority<input id="editor-priority" name="priority" type="number" min="0" value="0"></label>
+        <p id="editor-error" class="form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-editor">Cancel</button><button type="submit">Save</button></div>
+      </form>
+    </dialog>
+    <dialog id="comment-dialog" class="editor-dialog">
+      <form id="comment-form" method="dialog">
+        <div class="dialog-heading"><h2>Add comment</h2><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div>
+        <label>Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label>
+        <p id="comment-error" class="form-error" role="alert"></p>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-comment">Cancel</button><button type="submit">Add comment</button></div>
+      </form>
+    </dialog>
+    <dialog id="shortcuts-dialog" class="shortcuts-dialog">
+      <div class="dialog-heading"><h2>Keyboard shortcuts</h2><button class="icon-button" type="button" data-action="close-shortcuts" aria-label="Close">×</button></div>
+      <dl class="shortcut-list">
+        <div><dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Move selection</dd></div>
+        <div><dt><kbd>h</kbd> / <kbd>l</kbd></dt><dd>Move across stream/comments</dd></div>
+        <div><dt><kbd>z o</kbd> / <kbd>z c</kbd></dt><dd>Open or close one level</dd></div>
+        <div><dt><kbd>z O</kbd> / <kbd>z C</kbd></dt><dd>Open or close descendants</dd></div>
+        <div><dt><kbd>z a</kbd></dt><dd>Toggle the focused hierarchy</dd></div>
+        <div><dt><kbd>e</kbd></dt><dd>Edit the focused stream</dd></div>
+        <div><dt><kbd>a</kbd></dt><dd>Add a comment</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
+      </dl>
+    </dialog>
   </body>
 </html>
-

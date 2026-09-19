@@ -1,12 +1,72 @@
 (() => {
   "use strict";
 
-  const button = document.querySelector('[data-action="create-placeholder"]');
-  if (button) {
-    button.addEventListener("click", () => {
-      button.textContent = "Stream creation arrives next";
-      button.disabled = true;
+  const state = { bundle: null, streams: [], selected: null, focusColumn: "stream", commentIndex: 0, view: "priority", query: "", pendingCommand: "", editing: null };
+  const list = document.querySelector("#stream-list");
+  const search = document.querySelector("#search");
+  const username = document.querySelector("#username");
+  const editorDialog = document.querySelector("#editor-dialog");
+  const commentDialog = document.querySelector("#comment-dialog");
+  const shortcutsDialog = document.querySelector("#shortcuts-dialog");
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, { headers: { "Content-Type": "application/json", ...(options.headers || {}) }, ...options });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message || body.error || `Request failed (${response.status})`);
+    return body;
+  }
+  function actor() { return username.value.trim() || "anonymous"; }
+  function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
+  function markdown(value) { return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>").replace(/\n/g, "<br>"); }
+  function childrenOf(id, items = state.streams) { return items.filter((stream) => stream.parent_stream_id === id); }
+  function ordered(items) {
+    return [...items].sort((a, b) => {
+      if (state.view === "recent") return b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
+      if (state.view === "stale") return Number(Boolean(a.closed_at)) - Number(Boolean(b.closed_at)) || a.updated_at.localeCompare(b.updated_at) || a.id.localeCompare(b.id);
+      return Number(Boolean(a.closed_at)) - Number(Boolean(b.closed_at)) || a.priority - b.priority || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
     });
   }
-})();
+  function visibleItems() {
+    const query = state.query.toLowerCase();
+    return state.streams.filter((stream) => !query || [stream.summary, stream.description, ...(stream.tags || []), ...(stream.owners || [])].some((value) => String(value).toLowerCase().includes(query)));
+  }
+  function navigationItems() {
+    const items = visibleItems(); const result = [];
+    function visit(stream) { result.push(stream); if (stream.expanded !== false) ordered(childrenOf(stream.id, items)).forEach(visit); }
+    ordered(items.filter((stream) => !stream.parent_stream_id)).forEach(visit); return result;
+  }
+  function renderComment(comment, index) { return `<article class="comment-card ${state.focusColumn === "comments" && index === state.commentIndex && state.selected === comment.stream_id ? "is-focused" : ""}" data-comment-index="${index}" tabindex="-1"><div class="comment-meta"><strong>${escapeHtml(comment.creator)}</strong><span>${escapeHtml(comment.updated_at)}</span></div><div class="comment-body">${markdown(comment.body)}</div></article>`; }
+  function renderStream(stream, depth, items) {
+    const children = ordered(childrenOf(stream.id, items));
+    const childMarkup = stream.expanded !== false ? children.map((child) => renderStream(child, depth + 1, items)).join("") : "";
+    const tags = [`<span class="tag priority-tag">#P${stream.priority}</span>`, ...(stream.tags || []).map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`)].join("");
+    const comments = (stream.comments || []).map((comment, index) => renderComment(comment, index)).join("");
+    return `<article class="stream-row ${stream.closed_at ? "is-closed" : ""} ${state.selected === stream.id ? "is-selected" : ""}" style="--depth:${depth}" data-id="${stream.id}" tabindex="-1"><div class="stream-gutter"><button class="disclosure ${children.length ? "" : "is-empty"}" type="button" data-toggle="${stream.id}" aria-label="${stream.expanded !== false ? "Collapse" : "Expand"}">${stream.expanded !== false ? "⌄" : "›"}</button><span class="status-box" aria-label="${stream.closed_at ? "Closed" : "Open"}">${stream.closed_at ? "✓" : ""}</span></div><div class="stream-main"><div class="stream-content"><div class="stream-title-line"><span class="stream-id" title="Stream ${escapeHtml(stream.id)}">${escapeHtml(stream.id.slice(0, 6))}</span><span class="stream-title">${markdown(stream.summary)}</span><button class="stream-edit" type="button" data-edit="${stream.id}" aria-label="Edit stream" title="Edit stream">✎</button></div><div class="stream-meta"><span class="updated">${escapeHtml(stream.updated_at)}</span><span class="owners">${escapeHtml((stream.owners || []).join(", "))}</span><span class="tag-list">${tags}</span><button class="comment-add" type="button" data-comment="${stream.id}" aria-label="Add comment">＋</button></div>${stream.description ? `<div class="stream-description">${markdown(stream.description)}</div>` : ""}</div>${comments ? `<div class="comment-rail" aria-label="Comments">${comments}</div>` : ""}</div></article>${childMarkup}`;
+  }
+  function render() {
+    const items = visibleItems();
+    list.innerHTML = items.length ? ordered(items.filter((stream) => !stream.parent_stream_id)).map((stream) => renderStream(stream, 0, items)).join("") : '<div class="empty-filter">No streams match this filter.</div>';
+    const open = state.streams.filter((stream) => !stream.closed_at).length;
+    document.querySelector("#toolbar-stats").textContent = `${open} open stream${open === 1 ? "" : "s"} · ${state.streams.length} total`;
+  }
+  function selectedStream() { return state.streams.find((stream) => stream.id === state.selected); }
+  function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; } render(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
+  function moveVertical(direction) { const items = navigationItems(); const index = items.findIndex((stream) => stream.id === state.selected); const target = items[Math.max(0, Math.min(items.length - 1, index + direction))]; if (target) { const preserve = state.focusColumn === "comments" && (target.comments || []).length; state.commentIndex = preserve ? Math.min(state.commentIndex, target.comments.length - 1) : 0; select(target.id, Boolean(preserve)); } }
+  function moveHorizontal(direction) { const stream = selectedStream(); if (!stream) return; const count = (stream.comments || []).length; if (direction > 0 && state.focusColumn === "stream" && count) state.focusColumn = "comments"; else if (direction > 0 && state.focusColumn === "comments") state.commentIndex = Math.min(state.commentIndex + 1, count - 1); else if (direction < 0 && state.focusColumn === "comments" && state.commentIndex > 0) state.commentIndex -= 1; else if (direction < 0) state.focusColumn = "stream"; render(); document.querySelector(`[data-id="${CSS.escape(state.selected || "")}"]`)?.scrollIntoView({ block: "nearest" }); }
+  function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
+  function fold(command) { const stream = selectedStream(); if (!stream) return; if (command === "zo") setExpanded(stream, true, false); if (command === "zc") setExpanded(stream, false, false); if (command === "zO") setExpanded(stream, true, true); if (command === "zC") setExpanded(stream, false, true); if (command === "za") stream.expanded = stream.expanded === false; render(); }
+  function openEditor(stream = null) { state.editing = stream; document.querySelector("#editor-title").textContent = stream ? "Edit stream" : "Add stream"; document.querySelector("#editor-summary").value = stream?.summary || ""; document.querySelector("#editor-description").value = stream?.description || ""; document.querySelector("#editor-priority").value = stream?.priority ?? 0; document.querySelector("#editor-error").textContent = ""; editorDialog.showModal(); document.querySelector("#editor-summary").focus(); }
+  async function submitStream(event) { event.preventDefault(); const stream = state.editing; const changes = { summary: document.querySelector("#editor-summary").value.trim(), description: document.querySelector("#editor-description").value, priority: Number(document.querySelector("#editor-priority").value) || 0 }; try { if (stream) await api(`/api/streams/${stream.id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: stream.revision, changes }) }); else await api(`/api/bundles/${state.bundle.id}/streams`, { method: "POST", body: JSON.stringify({ actor: actor(), ...changes }) }); editorDialog.close(); await loadStreams(); document.querySelector("#status-message").textContent = stream ? "Stream saved" : "Stream added"; } catch (error) { document.querySelector("#editor-error").textContent = error.message; } }
+  function openComment(stream = selectedStream()) { if (!stream) return; state.editing = stream; document.querySelector("#comment-body").value = ""; document.querySelector("#comment-error").textContent = ""; commentDialog.showModal(); document.querySelector("#comment-body").focus(); }
+  async function submitComment(event) { event.preventDefault(); const stream = state.editing; try { await api(`/api/streams/${stream.id}/comments`, { method: "POST", body: JSON.stringify({ actor: actor(), body: document.querySelector("#comment-body").value.trim() }) }); commentDialog.close(); await loadStreams(); document.querySelector("#status-message").textContent = "Comment added"; } catch (error) { document.querySelector("#comment-error").textContent = error.message; } }
+  async function loadStreams() { const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: stream.expanded !== false })); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; render(); }
+  async function load() { try { let body = await api("/api/bundles"); if (!body.bundles.length) { body = { bundles: [(await api("/api/bundles", { method: "POST", body: JSON.stringify({ name: "Todos", actor: actor() }) })).bundle] }; } state.bundle = body.bundles[0]; document.querySelector("#bundle-name").textContent = state.bundle.name; await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
 
+  list.addEventListener("click", (event) => { const row = event.target.closest(".stream-row"); const toggle = event.target.closest("[data-toggle]"); const edit = event.target.closest("[data-edit]"); const comment = event.target.closest("[data-comment]"); if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); if (stream) { stream.expanded = stream.expanded === false; render(); } return; } if (edit) { select(edit.dataset.edit); openEditor(selectedStream()); return; } if (comment) { select(comment.dataset.comment); openComment(); return; } const card = event.target.closest(".comment-card"); if (card && row) { state.selected = row.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); render(); return; } if (row) select(row.dataset.id); });
+  document.querySelector("#view-select").addEventListener("change", (event) => { state.view = event.target.value; render(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
+  document.querySelector("#editor-form").addEventListener("submit", submitStream); document.querySelector("#comment-form").addEventListener("submit", submitComment);
+  document.querySelector('[data-action="add-stream"]').addEventListener("click", () => openEditor()); document.querySelector('[data-action="refresh"]').addEventListener("click", loadStreams); document.querySelector('[data-action="shortcuts"]').addEventListener("click", () => shortcutsDialog.showModal()); document.querySelector('[data-action="close-shortcuts"]').addEventListener("click", () => shortcutsDialog.close());
+  document.querySelectorAll('[data-action="close-editor"]').forEach((button) => button.addEventListener("click", () => editorDialog.close())); document.querySelectorAll('[data-action="close-comment"]').forEach((button) => button.addEventListener("click", () => commentDialog.close()));
+  document.addEventListener("keydown", (event) => { const active = document.activeElement; if (event.key === "?" && !["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) && !active.isContentEditable) { shortcutsDialog.showModal(); return; } if (event.key === "Escape" && state.pendingCommand) { state.pendingCommand = ""; return; } if (editorDialog.open || commentDialog.open || shortcutsDialog.open || ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable) return; if (state.pendingCommand === "z") { if (["o", "O", "c", "C", "a"].includes(event.key)) { event.preventDefault(); fold(`z${event.key}`); } state.pendingCommand = ""; return; } if (event.key === "z") { event.preventDefault(); state.pendingCommand = "z"; return; } if (event.key === "j" || event.key === "ArrowDown") { event.preventDefault(); moveVertical(1); } else if (event.key === "k" || event.key === "ArrowUp") { event.preventDefault(); moveVertical(-1); } else if (event.key === "h" || event.key === "ArrowLeft") { event.preventDefault(); moveHorizontal(-1); } else if (event.key === "l" || event.key === "ArrowRight") { event.preventDefault(); moveHorizontal(1); } else if (event.key === "e") { event.preventDefault(); openEditor(selectedStream()); } else if (event.key === "a") { event.preventDefault(); openComment(); } });
+  load();
+})();

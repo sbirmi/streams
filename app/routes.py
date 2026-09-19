@@ -92,7 +92,10 @@ def register_routes(app: Flask) -> None:
     @app.get("/api/bundles/<bundle_id>/streams")
     def list_streams(bundle_id: str) -> Response:
         include_closed = request.args.get("include_closed", "true").lower() not in {"0", "false", "no"}
-        return jsonify(streams=repository().list_streams(bundle_id, include_closed=include_closed))
+        streams = repository().list_streams(bundle_id, include_closed=include_closed)
+        for stream in streams:
+            stream["comments"] = repository().list_comments(stream["id"])
+        return jsonify(streams=streams)
 
     @app.post("/api/bundles/<bundle_id>/streams")
     def create_stream(bundle_id: str) -> tuple[Response, int]:

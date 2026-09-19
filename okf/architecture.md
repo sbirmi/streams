@@ -118,7 +118,7 @@ The initial schema contains `bundles`, `streams`, `comments`, `history`, and `sc
 
 Use resource-oriented endpoints with explicit version or revision preconditions on mutating stream/comment operations. A write that supplies an old revision should return a conflict response and the current representation, rather than overwriting it. Deep links should use stable identifiers and encode view/filter/sort state in a bookmarkable form.
 
-The initial JSON API exposes bundle listing/creation, bundle stream listing/creation, stream read/update, and comment listing/creation/update under `/api/`. Stream reads include their comments for the first UI slice. Mutating stream/comment requests include an `actor` display name and stream updates include a `revision` plus a `changes` object; stale revisions return HTTP 409 with the current object.
+The initial JSON API exposes bundle listing/creation, bundle stream listing/creation, stream read/update, and comment listing/creation/update under `/api/`. Stream reads and bundle stream listings include comments for the first UI slice. Mutating stream/comment requests include an `actor` display name and stream updates include a `revision` plus a `changes` object; stale revisions return HTTP 409 with the current object.
 
 External-reference recognition and rendering is described in [Integrations](integrations.md). Markdown rendering must use an allowlisted/sanitized renderer.
 
