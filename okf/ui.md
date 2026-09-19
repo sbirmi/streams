@@ -27,18 +27,24 @@ The first screen under review is intentionally narrow in scope:
 
 - The topmost bar is the **header**. It shows the Stream identity, bundle breadcrumbs/name, and the user/help controls; common prefixes such as `Bundles/` are omitted. The header uses the full available width, keeps its controls top-aligned, lets the identity/bundle name wrap within the left area when needed, and uses a subtle contrasting surface.
 - The next bar is the **viewbar**. It is a compact three-column surface: a roughly 200px filter column, a flexible left-aligned view-controls column, and a right-aligned statistics column. The statistics column may shrink to two lines, but stays wide enough to show `12 open streams` / `touched today` without dropping to a separate row.
+- The header and viewbar remain fixed while the stream list scrolls beneath them.
 - Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
 - The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.
 - Priority is the first tag and is styled like a tag with a distinct color.
 - Owners and tags use smaller text.
 - Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
 - Add-stream controls and reordering controls are deliberately not shown in this prototype.
-- Closed-item filtering is deliberately not shown in this prototype; the first pass displays open streams only.
+- Stream IDs are shown as small numeric chips between the status control and summary. Descriptions and comments can refer to another stream with `@Stream:<number>`; the notation renders as a compact reference chip that reflects whether the referenced stream is open or resolved.
+- Reference chips are intended to become actionable: from a chip, a user should be able to inspect the referenced stream and apply status actions such as close or reopen, subject to the normal edit/conflict rules.
+- The prototype includes a few resolved streams so their muted/checked treatment can be reviewed; closed-item filtering remains out of scope for this pass.
+- Resolved stream summaries are crossed out. Their descriptions collapse to one line by default and expand to the normal five-line allowance when the resolved row is selected/focused.
 - `j`/`k` navigate the currently visible rows only; collapsed descendants are skipped. Focus indication follows the row indentation at every nesting depth.
 - The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
 - Descriptions may occupy up to five rendered lines in the idle list view; editing can expand the text surface as needed.
 - Each stream row has a compact pencil affordance at the end of its summary line for opening a future full-detail edit modal. The modal’s layout and fields are out of scope for this prototype pass.
 - Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail begins 10px below the stream row’s top edge, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. Long comment bodies are visibly truncated with a multiline ellipsis; the complete text is reserved for the future modal. It has no decorative separator line.
+- Horizontal focus can move from stream content into the comment rail with `h`/`l` or the left/right arrows. The focused comment is highlighted and scrolled into view; vertical movement preserves the comment index when possible.
+- A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 
 ## Primary hierarchy
 

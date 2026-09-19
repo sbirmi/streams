@@ -21,6 +21,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R15 — Shareable locations:** Users can link directly to a stream or to a specific ordering/filter/view state.
 - **R16 — History:** Changes retain enough before/after information to support audit and targeted manual recovery.
 - **R17 — External references:** Configured reference patterns can turn identifiers such as `BUG123` into safe links and rendered references.
+- **R26 — Stream references:** Descriptions and comments can reference streams with a stable notation such as `@Stream:<number>`; rendered references expose the target stream and its current status, with future actions such as close/reopen subject to normal edit and conflict handling.
 - **R18 — Edit awareness:** The UI indicates when another user is editing a stream or comment, while still allowing independent objects to be edited concurrently.
 - **R24 — Lightweight attribution:** A user can provide an unvalidated display username at the root level, which is used as the default creator/commenter attribution and can be selected as an owner.
 - **R25 — Separate roles:** The data distinguishes creator from owner/assignee; creating an item does not automatically make the creator its owner in all cases.
