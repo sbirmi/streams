@@ -2,7 +2,38 @@
 
 Status: proposed.
 
+A standalone visual prototype is available in [`prototype/`](../prototype/). It is the place to settle the first-pass layout and interaction feel before expanding the application implementation.
+
 The UI should optimize for fast rendering, low interaction cost, and information density. It should feel like a quick shared workbench, not a large project-management dashboard.
+
+The current prototype direction favors a dense, list-like surface: minimal padding, no unnecessary cards, one compact header/control area, and stream rows that resemble a semantic unordered list. Comments are intentionally not shown in this first UI pass; their placement will be decided separately. Add-stream and reordering controls are also deferred while the reading/editing surface is being evaluated.
+
+Priority is rendered as the first metadata tag (for example, `#P0`) and color-coded like any other tag. The summary has no unrelated trailing labels; update time, owners, priority, tags, and deadline live in the metadata line beneath it.
+
+The hierarchy is not limited to one child level. Rows may be nested to multiple levels, with indentation and the focus indicator shifting together at each depth.
+
+## Current prototype decisions
+
+The first screen under review is intentionally narrow in scope:
+
+```text
+[S] stream : Todos                                      [username] [?]
+[ search/filter ]          12 open streams · touched today       [Priority v]
+
+[ ] last update  Summary goes here
+    owner1, owner2  #P0 #tag1 #tag2
+    Description, if it exists
+```
+
+- The top bar is the topmost element. It shows the Stream identity, bundle breadcrumbs/name, and the user/help controls; common prefixes such as `Bundles/` are omitted.
+- The next bar contains search, compact collection statistics, and the view selector.
+- Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
+- The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.
+- Priority is the first tag and is styled like a tag with a distinct color.
+- Owners and tags use smaller text.
+- Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
+- Comments, add-stream controls, and reordering controls are deliberately not shown in this prototype.
+- `j`/`k` navigate the currently visible rows only; collapsed descendants are skipped. Focus indication follows the row indentation at every nesting depth.
 
 ## Primary hierarchy
 

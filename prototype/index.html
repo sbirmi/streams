@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Stream UI prototype">
+    <title>Stream — UI prototype</title>
+    <link rel="stylesheet" href="./style.css">
+    <script defer src="./prototype.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark">S</span><span>stream :</span><span class="breadcrumb"><strong>Todos</strong></span></div>
+        <div class="topbar-actions">
+          <label class="username-field"><span class="sr-only">Your username</span><input id="username" type="text" value="alex" placeholder="username" autocomplete="nickname"></label>
+          <button class="icon-button" type="button" title="Keyboard shortcuts" data-action="shortcuts">?</button>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="View controls">
+        <label class="search-control"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Filter streams" autocomplete="off"></label>
+        <div class="toolbar-stats">12 open streams <span class="dot-separator">·</span> touched today</div>
+        <div class="toolbar-controls">
+          <label class="compact-control"><span class="sr-only">View</span><select id="view-select"><option value="priority">Priority</option><option value="recent">Recently touched</option><option value="stale">Stale</option></select></label>
+          <label class="check-control"><input id="show-closed" type="checkbox"> <span>Closed</span></label>
+        </div>
+      </section>
+
+      <section id="stream-list" class="stream-list" aria-label="Streams" tabindex="0"></section>
+
+      <footer class="prototype-footer"><span>UI prototype · mock data only</span><button type="button" data-action="reset">Reset</button></footer>
+    </main>
+
+    <dialog id="shortcuts-dialog" class="shortcuts-dialog">
+      <div class="dialog-heading"><h2>Keyboard shortcuts</h2><button class="icon-button" type="button" data-action="close-shortcuts" aria-label="Close">×</button></div>
+      <dl class="shortcut-list">
+        <div><dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Move selection</dd></div>
+        <div><dt><kbd>o</kbd></dt><dd>Expand or collapse</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this help</dd></div>
+      </dl>
+    </dialog>
+  </body>
+</html>

@@ -4,6 +4,7 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Next three
 
+- [ ] **Review and settle the UI prototype.** Use `prototype/` to decide the primary hierarchy, density, controls, comment presentation, and mouse/keyboard interaction before building the production UI.
 - [ ] **Build the first vertical slice.** Implement the default priority view plus create/edit/comment flows, safe server-side Markdown rendering, and enough vanilla JS for expand/collapse and inline refresh without a frontend framework.
 - [ ] Add keyboard navigation and mouse actions for insertion, moving, and reordering.
 - [ ] Add alternate deadline, chronological, and stale-open views.
