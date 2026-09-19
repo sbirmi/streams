@@ -38,7 +38,7 @@ The first screen under review is intentionally narrow in scope:
 - The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
 - Descriptions may occupy up to five rendered lines in the idle list view; editing can expand the text surface as needed.
 - Each stream row has a compact pencil affordance at the end of its summary line for opening a future full-detail edit modal. The modal’s layout and fields are out of scope for this prototype pass.
-- Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail is bottom-aligned, begins about half a text line below the stream content, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. It has no decorative separator line.
+- Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail begins 10px below the stream row’s top edge, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. Long comment bodies are visibly truncated with a multiline ellipsis; the complete text is reserved for the future modal. It has no decorative separator line.
 
 ## Primary hierarchy
 
@@ -90,7 +90,7 @@ Views should have stable, shareable URLs. A URL may identify a stream directly o
 
 ## Keyboard-first actions
 
-Keyboard shortcuts should make frequent navigation and edits fast, but the UI must also provide discoverable mouse/pointer controls. Mouse and keyboard should cover the same core actions where practical; reordering may rely more heavily on pointer interaction.
+Keyboard shortcuts should make frequent navigation and edits fast, but the UI must also provide discoverable mouse/pointer controls. Mouse and keyboard should cover the same core actions where practical; reordering may rely more heavily on pointer interaction. The current shortcut proposal and focus model live in [`keyboard-navigation.md`](keyboard-navigation.md).
 
 The eventual action set should cover:
 

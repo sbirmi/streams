@@ -12,6 +12,7 @@ Documentation is the source of truth. Every implementation change must update th
 | [Requirements](requirements.md) | Initial functional and non-functional requirements |
 | [Architecture](architecture.md) | Proposed system shape and data model |
 | [UI](ui.md) | Minimal interaction model, views, and keyboard navigation |
+| [Keyboard navigation](keyboard-navigation.md) | Focus model and proposed keyboard shortcuts |
 | [Concurrency](concurrency.md) | Shared editing and conflict handling |
 | [Security](security.md) | Trust boundary and supply-chain/security baseline |
 | [Integrations](integrations.md) | Configurable external-reference recognition and rendering |
