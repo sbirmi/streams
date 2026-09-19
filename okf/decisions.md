@@ -53,4 +53,4 @@ Streams preserve hierarchy order with a server-controlled integer `order_key` fo
 
 ## Shareable rooted-view URLs
 
-Shareable navigation state uses stable stream/comment identifiers in query parameters: `root`, `view`, and typed `focus`. The index is represented by omitting `root`. Client-local presentation state, including expansion and scroll preferences, is stored separately per root/view context so different users can retain their own layout without making links noisy or user-specific.
+Shareable navigation state uses stable stream/comment identifiers in query parameters: `root`, `view`, and typed `focus`. The index is represented by omitting `root`. Client-local presentation state, including expansion and scroll preferences, is stored separately per bundle/root context, independent of sort mode, so different users can retain their own layout without making links noisy or user-specific. Restoring an explicit or saved focus expands only the target’s required ancestor chain.
