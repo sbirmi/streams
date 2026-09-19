@@ -62,10 +62,14 @@ h2, p { margin: 0; }
 .disclosure.is-empty { visibility: hidden; }
 .status-box { display: grid; width: 12px; height: 12px; margin-top: 2px; place-items: center; border: 1px solid var(--line-strong); border-radius: 2px; color: var(--green); background: var(--surface); font-size: 10px; line-height: 1; }
 .is-closed .status-box { border-color: var(--green); background: var(--green-soft); }
-.stream-main { min-width: 0; }
+.stream-main { display: grid; grid-template-columns: minmax(400px, 52%) minmax(300px, 1fr); column-gap: 20px; align-items: stretch; min-width: 0; }
+.stream-content { grid-column: 1; min-width: 0; }
 .stream-title-line { display: flex; align-items: baseline; gap: 8px; min-height: 18px; }
 .stream-title { min-width: 0; color: var(--ink); font-size: 14px; font-weight: 650; line-height: 1.35; }
 .stream-title:hover { color: var(--blue); }
+.stream-edit { flex: 0 0 auto; width: 21px; height: 21px; border: 0; border-radius: 3px; color: var(--muted); background: transparent; font-size: 14px; line-height: 1; opacity: 0; }
+.stream-row:hover .stream-edit, .stream-row.is-selected .stream-edit, .stream-edit:focus-visible { opacity: 1; }
+.stream-edit:hover, .stream-edit:focus-visible { color: var(--blue); background: var(--blue-soft); }
 .stream-meta { display: flex; align-items: center; gap: 8px; min-height: 17px; margin-top: 2px; overflow: hidden; color: var(--muted); font-size: 11px; line-height: 1.3; }
 .updated { flex: 0 0 auto; color: var(--faint); }
 .owners { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -79,6 +83,10 @@ h2, p { margin: 0; }
 .editable-text:hover { background: var(--blue-soft); }
 .editable-text[contenteditable="true"] { min-width: 80px; outline: 1px solid var(--blue); background: #fff; box-shadow: 0 0 0 2px var(--blue-soft); white-space: normal; }
 .stream-description[contenteditable="true"] { display: block; -webkit-line-clamp: unset; }
+.comment-rail { display: flex; grid-column: 2; grid-row: 1; align-self: end; min-width: 0; gap: 10px; overflow-x: auto; padding-top: 7px; scrollbar-color: var(--line-strong) transparent; }
+.comment-card { flex: 0 0 300px; min-width: 300px; padding: 0 9px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.comment-meta { display: flex; gap: 7px; margin-bottom: 4px; color: var(--faint); font-size: 11px; }
+.comment-meta strong { color: var(--muted); font-weight: 650; }
 .empty-filter { padding: 42px 0; color: var(--muted); text-align: center; }
 .prototype-footer { display: flex; justify-content: space-between; padding: 12px 2px; color: var(--faint); font-size: 11px; }
 .prototype-footer button { border: 0; padding: 0; color: var(--blue); background: transparent; font-size: inherit; }

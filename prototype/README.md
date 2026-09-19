@@ -14,4 +14,4 @@ Then open <http://127.0.0.1:8080/>.
 
 The prototype is not a production UI and does not connect to SQLite or the Flask app.
 
-The current pass intentionally omits comments and add/reorder controls. Double-click a summary or description to preview the “plain when reading, editable when active” behavior.
+The current pass shows mock comments in a horizontally scrollable rail beside each stream. Add/reorder controls remain intentionally omitted. Double-click a summary or description to preview the “plain when reading, editable when active” behavior.

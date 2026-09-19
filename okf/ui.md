@@ -32,11 +32,13 @@ The first screen under review is intentionally narrow in scope:
 - Priority is the first tag and is styled like a tag with a distinct color.
 - Owners and tags use smaller text.
 - Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
-- Comments, add-stream controls, and reordering controls are deliberately not shown in this prototype.
+- Add-stream controls and reordering controls are deliberately not shown in this prototype.
 - Closed-item filtering is deliberately not shown in this prototype; the first pass displays open streams only.
 - `j`/`k` navigate the currently visible rows only; collapsed descendants are skipped. Focus indication follows the row indentation at every nesting depth.
 - The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
 - Descriptions may occupy up to five rendered lines in the idle list view; editing can expand the text surface as needed.
+- Each stream row has a compact pencil affordance at the end of its summary line for opening a future full-detail edit modal. The modal’s layout and fields are out of scope for this prototype pass.
+- Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail is bottom-aligned, begins about half a text line below the stream content, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. It has no decorative separator line.
 
 ## Primary hierarchy
 

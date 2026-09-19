@@ -2,12 +2,12 @@
   "use strict";
 
   const initialStreams = [
-    { id: "ship", parent: null, summary: "Ship the first usable version", description: "Finish the **first vertical slice** before sharing it.", priority: 0, deadline: "Today", updated: "2h ago", owners: ["alex"], tags: ["release"], open: true, expanded: true, children: ["test", "docs"] },
-    { id: "test", parent: "ship", summary: "Add conflict handling tests", description: "Test the stale revision path with two browser sessions.", priority: 0, deadline: "Tomorrow", updated: "Yesterday", owners: ["alex", "sam"], tags: ["engineering"], open: true, expanded: false, children: [] },
-    { id: "docs", parent: "ship", summary: "Review the deployment notes", description: "Left off at the backup and restore section.", priority: 1, deadline: "Fri", updated: "3d ago", owners: ["alex"], tags: ["docs"], open: true, expanded: false, children: [] },
-    { id: "garden", parent: null, summary: "Decide what to do about the garden", description: "Compare the low-maintenance options.", priority: 1, deadline: "Next week", updated: "5d ago", owners: ["alex"], tags: ["home"], open: true, expanded: false, children: [] },
-    { id: "taxes", parent: null, summary: "Send the tax documents", description: "Waiting for the last statement.", priority: 2, deadline: "Mar 30", updated: "1w ago", owners: ["alex"], tags: ["admin"], open: true, expanded: false, children: [] },
-    { id: "old", parent: null, summary: "Look into the old side project", description: "Not urgent. Revisit when the current project is quieter.", priority: 2, deadline: null, updated: "3w ago", owners: ["alex"], tags: ["side-project"], open: false, expanded: false, children: [] },
+    { id: "ship", parent: null, summary: "Ship the first usable version", description: "Finish the **first vertical slice** before sharing it.\nKeep the default view fast to scan.\nMake conflicts visible without interrupting work.\nLeave room for comments beside the stream.\nDocument the final interaction decisions.", priority: 0, deadline: "Today", updated: "2h ago", owners: ["alex"], tags: ["release"], open: true, expanded: true, children: ["test", "docs"], comments: [{ author: "sam", updated: "18m ago", text: "The conflict response is now visible in both browser sessions.\nI also checked the stale revision warning against the current copy." }, { author: "alex", updated: "1h ago", text: "I left the deployment checklist open for one more pass.\nThe backup notes still need a final example." }] },
+    { id: "test", parent: "ship", summary: "Add conflict handling tests", description: "Test the stale revision path with two browser sessions.\nCover both the rejected write and the refreshed copy.\nKeep the failure message easy to understand.", priority: 0, deadline: "Tomorrow", updated: "Yesterday", owners: ["alex", "sam"], tags: ["engineering"], open: true, expanded: false, children: [], comments: [{ author: "alex", updated: "Yesterday", text: "The stale revision path still needs a browser-level regression test.\nIt should leave the user’s draft intact." }] },
+    { id: "docs", parent: "ship", summary: "Review the deployment notes", description: "Left off at the backup and restore section.", priority: 1, deadline: "Fri", updated: "3d ago", owners: ["alex"], tags: ["docs"], open: true, expanded: false, children: [], comments: [{ author: "sam", updated: "3d ago", text: "Backup and restore are the only sections still needing review." }] },
+    { id: "garden", parent: null, summary: "Decide what to do about the garden", description: "Compare the low-maintenance options.", priority: 1, deadline: "Next week", updated: "5d ago", owners: ["alex"], tags: ["home"], open: true, expanded: false, children: [], comments: [{ author: "alex", updated: "5d ago", text: "The native-plant option looks like the simplest long-term choice." }] },
+    { id: "taxes", parent: null, summary: "Send the tax documents", description: "Waiting for the last statement.", priority: 2, deadline: "Mar 30", updated: "1w ago", owners: ["alex"], tags: ["admin"], open: true, expanded: false, children: [], comments: [{ author: "alex", updated: "1w ago", text: "Still waiting for the final statement before sending everything." }] },
+    { id: "old", parent: null, summary: "Look into the old side project", description: "Not urgent. Revisit when the current project is quieter.", priority: 2, deadline: null, updated: "3w ago", owners: ["alex"], tags: ["side-project"], open: false, expanded: false, children: [], comments: [{ author: "sam", updated: "3w ago", text: "Parking this until the current project is quieter." }] },
   ];
 
   const state = { streams: structuredClone(initialStreams), selected: "ship", view: "priority", query: "" };
@@ -51,17 +51,23 @@
     const tags = [`<span class="tag priority-tag ${stream.priority === 0 ? "p0" : ""}">#P${stream.priority}</span>`, ...stream.tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`), stream.deadline ? `<span class="due-tag">due ${escapeHtml(stream.deadline)}</span>` : ""].join("");
     return `<article class="stream-row ${stream.open ? "" : "is-closed"}" style="--depth: ${depth}" data-id="${stream.id}" tabindex="-1">
       <div class="stream-gutter"><button class="disclosure ${hasChildren ? "" : "is-empty"}" type="button" data-toggle="${stream.id}" aria-label="${stream.expanded ? "Collapse" : "Expand"}">${stream.expanded ? "⌄" : "›"}</button><span class="status-box" aria-label="${stream.open ? "Open" : "Closed"}">${stream.open ? "" : "✓"}</span></div>
-      <div class="stream-main"><div class="stream-title-line"><span class="stream-title editable-text" data-edit="summary" data-id="${stream.id}">${renderMarkdown(stream.summary)}</span></div><div class="stream-meta"><span class="updated">${escapeHtml(stream.updated)}</span><span class="owners">${escapeHtml(stream.owners.join(", "))}</span><span class="tag-list">${tags}</span></div>${stream.description ? `<div class="stream-description editable-text" data-edit="description" data-id="${stream.id}">${renderMarkdown(stream.description)}</div>` : ""}</div>
+      <div class="stream-main"><div class="stream-content"><div class="stream-title-line"><span class="stream-title editable-text" data-edit="summary" data-id="${stream.id}">${renderMarkdown(stream.summary)}</span><button class="stream-edit" type="button" data-edit-stream="${stream.id}" aria-label="Edit stream" title="Edit stream">✎</button></div><div class="stream-meta"><span class="updated">${escapeHtml(stream.updated)}</span><span class="owners">${escapeHtml(stream.owners.join(", "))}</span><span class="tag-list">${tags}</span></div>${stream.description ? `<div class="stream-description editable-text" data-edit="description" data-id="${stream.id}">${renderMarkdown(stream.description)}</div>` : ""}</div>${renderComments(stream)}</div>
     </article>${childMarkup}`;
   }
   function select(id) { state.selected = id; render(); document.querySelector(`[data-id="${id}"]`)?.scrollIntoView({ block: "nearest" }); }
-  function renderMarkdown(value) { return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>"); }
+  function renderMarkdown(value) { return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>").replace(/\n/g, "<br>"); }
+  function renderComments(stream) {
+    if (!stream.comments?.length) return "";
+    return `<div class="comment-rail" aria-label="Comments">${stream.comments.map((comment) => `<article class="comment-card"><div class="comment-meta"><strong>${escapeHtml(comment.author)}</strong><span>${escapeHtml(comment.updated)}</span></div><div>${renderMarkdown(comment.text)}</div></article>`).join("")}</div>`;
+  }
   function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])); }
 
   list.addEventListener("click", (event) => {
     const row = event.target.closest(".stream-row");
     const toggle = event.target.closest("[data-toggle]");
+    const edit = event.target.closest("[data-edit-stream]");
     if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); stream.expanded = !stream.expanded; render(); return; }
+    if (edit) { select(edit.dataset.editStream); return; }
     if (row) select(row.dataset.id);
   });
   list.addEventListener("dblclick", (event) => {
