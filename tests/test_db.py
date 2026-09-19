@@ -77,6 +77,17 @@ class DatabaseTestCase(unittest.TestCase):
                 parent["id"], parent["revision"], "alice", {"parent_stream_id": child["id"]}
             )
 
+    def test_stream_insertion_preserves_sibling_order(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        last = self.repository.create_stream(bundle["id"], "Last", "alice")
+        middle = self.repository.create_stream(
+            bundle["id"], "Middle", "alice", anchor_stream_id=last["id"], placement="before"
+        )
+
+        streams = self.repository.list_streams(bundle["id"])
+        self.assertEqual([stream["id"] for stream in streams], [first["id"], middle["id"], last["id"]])
+
 
 if __name__ == "__main__":
     unittest.main()

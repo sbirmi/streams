@@ -55,6 +55,8 @@ STREAM_HOST=0.0.0.0 STREAM_PORT=5000 STREAM_DATABASE_PATH=data/stream.sqlite3 ./
 
 Use `GET /healthz` for a basic health check. Do not bind to a public interface without first revisiting the trusted-network security model.
 
+The default shortcut map is in `config/shortcuts.yaml`. Set `STREAM_SHORTCUTS_PATH` to use another file; shortcut configuration is loaded at service startup.
+
 ## Backup principle
 
 Back up the datastore as an application-consistent snapshot or through its supported dump mechanism. Test restoring into an isolated instance before relying on a backup. Record the last verified restore in the operational notes or deployment history.

@@ -1,0 +1,4 @@
+# Flat shortcut map. Changes take effect when the application restarts.
+insert_before: i
+insert_after: o
+insert_child: O

@@ -90,6 +90,8 @@ class Repository:
         snooze_until: str | None = None,
         tags: Iterable[str] = (),
         stream_id: str | None = None,
+        anchor_stream_id: str | None = None,
+        placement: str | None = None,
     ) -> dict[str, Any]:
         stream_id = stream_id or new_id()
         timestamp = now()
@@ -99,6 +101,19 @@ class Repository:
             self._require_bundle(connection, bundle_id)
             if parent_stream_id:
                 self._require_stream(connection, parent_stream_id, bundle_id=bundle_id)
+            position = self._insertion_position(
+                connection, bundle_id, parent_stream_id, anchor_stream_id, placement
+            )
+            if anchor_stream_id and placement in {"before", "after"}:
+                anchor = self._require_stream(connection, anchor_stream_id, bundle_id=bundle_id)
+                if anchor["parent_stream_id"] != parent_stream_id:
+                    raise ValueError("insertion anchor must share the new stream's parent")
+                threshold = anchor["position"] + (1 if placement == "after" else 0)
+                connection.execute(
+                    "UPDATE streams SET position = position + 1 WHERE bundle_id = ? "
+                    "AND parent_stream_id IS ? AND position >= ?",
+                    (bundle_id, parent_stream_id, threshold),
+                )
             connection.execute(
                 "INSERT INTO streams("
                 "id, bundle_id, parent_stream_id, summary, description, owners, creator, priority, "
@@ -107,6 +122,7 @@ class Repository:
                 (stream_id, bundle_id, parent_stream_id, summary, description, _json(owners), creator, priority,
                  snooze_until, deadline, timestamp, timestamp, _json(tags)),
             )
+            connection.execute("UPDATE streams SET position = ? WHERE id = ?", (position, stream_id))
             row = connection.execute("SELECT * FROM streams WHERE id = ?", (stream_id,)).fetchone()
             assert row is not None
             result = _decode(row)
@@ -258,6 +274,18 @@ class Repository:
         if row is None:
             raise NotFound(f"comment {comment_id}")
         return row
+
+    @staticmethod
+    def _insertion_position(connection: Any, bundle_id: str, parent_stream_id: str | None,
+                            anchor_stream_id: str | None, placement: str | None) -> int:
+        if anchor_stream_id and placement in {"before", "after"}:
+            anchor = Repository._require_stream(connection, anchor_stream_id, bundle_id=bundle_id)
+            return anchor["position"] + (1 if placement == "after" else 0)
+        row = connection.execute(
+            "SELECT COALESCE(MAX(position), -1) + 1 FROM streams WHERE bundle_id = ? AND parent_stream_id IS ?",
+            (bundle_id, parent_stream_id),
+        ).fetchone()
+        return int(row[0])
 
     @staticmethod
     def _is_descendant(connection: Any, candidate_id: str, ancestor_id: str) -> bool:

@@ -114,12 +114,12 @@ The same feedback model applies to `>>`, `<<`, `ds`, and `dc`, with the next val
 
 ## Shortcut configuration
 
-The default shortcut map should live in a YAML configuration file rather than being customized through the UI. Configuration changes take effect after an application restart. The initial implementation should define a documented default map and a clear fallback behavior for missing or invalid configuration.
+The default shortcut map lives in [`config/shortcuts.yaml`](../config/shortcuts.yaml) rather than being customized through the UI. Configuration changes take effect after an application restart. The initial implementation uses a small flat YAML map for `insert_before`, `insert_after`, and `insert_child`; missing or invalid files fall back to the documented defaults and emit a warning.
 
 ## Open questions
 
 - Should right/left focus the comment card as a whole, or a specific link/control inside it?
-- What YAML path and schema should hold the shortcut map?
+- Should the shortcut configuration grow beyond the initial flat insertion map, and if so should it adopt a full YAML parser/schema?
 - Should invalid shortcut configuration fail startup, warn and use defaults, or ignore only invalid entries?
 - Should `(` and `)` use the aunt fallback exactly as described, or stop when no same-depth target exists?
 - Should command HUD placement follow the focused row, or remain fixed in the viewbar?

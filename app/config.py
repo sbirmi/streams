@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,7 @@ class Settings:
     port: int = 5000
     log_level: str = "INFO"
     database_path: str = "data/stream.sqlite3"
+    shortcuts_path: str = "config/shortcuts.yaml"
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -26,6 +28,7 @@ class Settings:
             port=_positive_int(os.getenv("STREAM_PORT"), cls.port),
             log_level=os.getenv("STREAM_LOG_LEVEL", cls.log_level).upper(),
             database_path=os.getenv("STREAM_DATABASE_PATH", cls.database_path),
+            shortcuts_path=os.getenv("STREAM_SHORTCUTS_PATH", cls.shortcuts_path),
         )
 
 

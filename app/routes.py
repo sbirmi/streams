@@ -69,6 +69,10 @@ def register_routes(app: Flask) -> None:
     def healthz() -> Response:
         return jsonify(status="ok")
 
+    @app.get("/api/shortcuts")
+    def shortcuts() -> Response:
+        return jsonify(shortcuts=current_app.config["SHORTCUTS"])
+
     @app.get("/api/bundles")
     def list_bundles() -> Response:
         return jsonify(bundles=repository().list_bundles())
@@ -109,6 +113,7 @@ def register_routes(app: Flask) -> None:
             priority=data.get("priority", 0), parent_stream_id=data.get("parent_stream_id"),
             deadline=data.get("deadline"), snooze_until=data.get("snooze_until"),
             tags=data.get("tags", []), stream_id=data.get("id"),
+            anchor_stream_id=data.get("anchor_stream_id"), placement=data.get("placement"),
         )
         return jsonify(stream=result), 201
 

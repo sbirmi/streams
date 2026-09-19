@@ -57,6 +57,12 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(conflict_response.status_code, 409)
         self.assertEqual(conflict_response.json["current"]["summary"], "Ship release")
 
+    def test_shortcuts_endpoint_returns_configured_insert_keys(self) -> None:
+        response = self.client.get("/api/shortcuts")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["shortcuts"], {"insert_before": "i", "insert_after": "o", "insert_child": "O"})
+
 
 if __name__ == "__main__":
     unittest.main()
