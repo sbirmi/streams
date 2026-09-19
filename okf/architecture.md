@@ -112,7 +112,7 @@ Future tree model: the underlying data may be one large tree rather than a set o
 
 The database is migrated on application startup from ordered SQL files in `migrations/`. The repository layer owns SQL statements and exposes application-level operations rather than leaking connections into routes. Each write uses a short `BEGIN IMMEDIATE` transaction, foreign keys are enabled, and file-backed databases use WAL mode with a busy timeout.
 
-The initial schema contains `bundles`, `streams`, `comments`, `history`, and `schema_migrations`. Stream and comment revisions are independent. History stores actor attribution, changed fields, and before/after JSON snapshots. Stream position is stored separately from view sorting so future manual movement does not have to alter the meaning of deadline or chronological views.
+The initial schema contains `bundles`, `streams`, `comments`, `history`, and `schema_migrations`. Stream and comment revisions are independent. History stores actor attribution, changed fields, and before/after JSON snapshots. Each stream has a server-controlled numeric `order_key` scoped to its sibling list. New sibling keys start at gaps of 1000; insertion uses the midpoint between neighboring keys and resequences that sibling list with the same gaps when no integer space remains. Hierarchy-preserving views order children by `order_key`; alternate view sorting must not change it. The key is shown read-only in the stream modal for troubleshooting, but is not an editable API field.
 
 ## API expectations
 

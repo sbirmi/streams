@@ -22,6 +22,8 @@
 - URL access currently implies trusted read/write access.
 - Stream owners are entered as comma-separated names; whitespace-only entries are omitted. Deadlines use `YYYY-MM-DD` and are shown as `due YYYY-MM-DD`.
 - Stream tags are entered as comma- or whitespace-separated values; empty values are omitted and the remaining order is preserved.
+- Sibling order is stored in a server-controlled numeric `order_key`, allocated with gaps and shown read-only in the stream modal. Clients must not submit it as an editable stream field.
+- The View selector offers Priority, Recently touched, Manual order, and Stale. Manual order renders siblings by `order_key`.
 
 ## Release checklist
 

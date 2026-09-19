@@ -157,28 +157,18 @@ class Repository:
                     raise ValueError("child insertion must remain inside the rooted view")
             if parent_stream_id:
                 self._require_stream(connection, parent_stream_id, bundle_id=bundle_id)
-            position = self._insertion_position(
+            order_key = self._insertion_order_key(
                 connection, bundle_id, parent_stream_id, anchor_stream_id, placement
             )
-            if anchor_stream_id and placement in {"before", "after"}:
-                anchor = self._require_stream(connection, anchor_stream_id, bundle_id=bundle_id)
-                if anchor["parent_stream_id"] != parent_stream_id:
-                    raise ValueError("insertion anchor must share the new stream's parent")
-                threshold = anchor["position"] + (1 if placement == "after" else 0)
-                connection.execute(
-                    "UPDATE streams SET position = position + 1 WHERE bundle_id = ? "
-                    "AND parent_stream_id IS ? AND position >= ?",
-                    (bundle_id, parent_stream_id, threshold),
-                )
             connection.execute(
                 "INSERT INTO streams("
                 "id, bundle_id, parent_stream_id, summary, description, owners, creator, priority, "
-                "snooze_until, deadline, created_at, updated_at, closed_at, close_status, tags, revision, position"
+                "snooze_until, deadline, created_at, updated_at, closed_at, close_status, tags, revision, order_key"
                 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 1, 0)",
                 (stream_id, bundle_id, parent_stream_id, summary, description, _json(owners), creator, priority,
                  snooze_until, deadline, timestamp, timestamp, _json(tags)),
             )
-            connection.execute("UPDATE streams SET position = ? WHERE id = ?", (position, stream_id))
+            connection.execute("UPDATE streams SET order_key = ? WHERE id = ?", (order_key, stream_id))
             row = connection.execute("SELECT * FROM streams WHERE id = ?", (stream_id,)).fetchone()
             assert row is not None
             result = _decode(row)
@@ -197,7 +187,7 @@ class Repository:
         parameters: list[Any] = [bundle_id]
         if not include_closed:
             query += " AND closed_at IS NULL"
-        query += " ORDER BY position, created_at, id"
+        query += " ORDER BY order_key, created_at, id"
         with self.database.read() as connection:
             rows = connection.execute(query, parameters).fetchall()
         return [_decode(row) for row in rows]
@@ -210,7 +200,7 @@ class Repository:
         changes: dict[str, Any],
     ) -> dict[str, Any]:
         allowed = {"summary", "description", "owners", "priority", "snooze_until", "deadline",
-                   "closed_at", "close_status", "tags", "parent_stream_id", "position"}
+                   "closed_at", "close_status", "tags", "parent_stream_id"}
         unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"unsupported stream fields: {sorted(unknown)}")
@@ -255,7 +245,7 @@ class Repository:
             current = _decode(self._require_stream(connection, stream_id))
             self._check_revision("stream", stream_id, current, expected_revision)
             child_rows = connection.execute(
-                "SELECT * FROM streams WHERE parent_stream_id = ? ORDER BY position, created_at, id",
+                "SELECT * FROM streams WHERE parent_stream_id = ? ORDER BY order_key, created_at, id",
                 (stream_id,),
             ).fetchall()
             children = [_decode(row) for row in child_rows]
@@ -267,26 +257,33 @@ class Repository:
             for row in comment_rows:
                 self._record_history(connection, "comment", row["id"], actor, dict(row), None)
 
-            deleted_position = current["position"]
-            child_count = len(children)
-            position_delta = child_count - 1
-            connection.execute(
-                "UPDATE streams SET position = position + ? "
-                "WHERE parent_stream_id IS NULL AND position > ?",
-                (position_delta, deleted_position),
-            )
-            for child_index, child in enumerate(children):
+            # Use the deleted stream's old order to place promoted children between roots.
+            roots_before = [row[0] for row in connection.execute(
+                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS NULL "
+                "AND order_key < ? ORDER BY order_key, created_at, id",
+                (current["bundle_id"], current["order_key"]),
+            ).fetchall()]
+            roots_after = [row[0] for row in connection.execute(
+                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS NULL "
+                "AND order_key > ? ORDER BY order_key, created_at, id",
+                (current["bundle_id"], current["order_key"]),
+            ).fetchall()]
+            promoted_ids: list[str] = []
+            for child in children:
                 promoted = dict(child)
                 promoted["parent_stream_id"] = None
-                promoted["position"] = deleted_position + child_index
+                promoted["order_key"] = 0
                 promoted["updated_at"] = now()
                 promoted["revision"] = child["revision"] + 1
                 connection.execute(
-                    "UPDATE streams SET parent_stream_id = NULL, position = ?, updated_at = ?, revision = revision + 1 "
+                    "UPDATE streams SET parent_stream_id = NULL, order_key = 0, updated_at = ?, revision = revision + 1 "
                     "WHERE id = ?",
-                    (promoted["position"], promoted["updated_at"], child["id"]),
+                    (promoted["updated_at"], child["id"]),
                 )
                 self._record_history(connection, "stream", child["id"], actor, child, promoted)
+                promoted_ids.append(child["id"])
+
+            self._assign_order_keys(connection, roots_before + promoted_ids + roots_after)
 
             result = connection.execute(
                 "DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, expected_revision)
@@ -403,16 +400,40 @@ class Repository:
         return row
 
     @staticmethod
-    def _insertion_position(connection: Any, bundle_id: str, parent_stream_id: str | None,
-                            anchor_stream_id: str | None, placement: str | None) -> int:
+    def _assign_order_keys(connection: Any, stream_ids: list[str]) -> None:
+        for index, stream_id in enumerate(stream_ids, start=1):
+            connection.execute(
+                "UPDATE streams SET order_key = ? WHERE id = ?", (index * 1000, stream_id)
+            )
+
+    @staticmethod
+    def _insertion_order_key(connection: Any, bundle_id: str, parent_stream_id: str | None,
+                              anchor_stream_id: str | None, placement: str | None) -> int:
+        siblings = connection.execute(
+            "SELECT id, order_key FROM streams WHERE bundle_id = ? AND parent_stream_id IS ? "
+            "ORDER BY order_key, created_at, id",
+            (bundle_id, parent_stream_id),
+        ).fetchall()
         if anchor_stream_id and placement in {"before", "after"}:
             anchor = Repository._require_stream(connection, anchor_stream_id, bundle_id=bundle_id)
-            return anchor["position"] + (1 if placement == "after" else 0)
-        row = connection.execute(
-            "SELECT COALESCE(MAX(position), -1) + 1 FROM streams WHERE bundle_id = ? AND parent_stream_id IS ?",
-            (bundle_id, parent_stream_id),
-        ).fetchone()
-        return int(row[0])
+            if anchor["parent_stream_id"] != parent_stream_id:
+                raise ValueError("insertion anchor must share the new stream's parent")
+            anchor_index = next(index for index, row in enumerate(siblings) if row["id"] == anchor_stream_id)
+            lower_index = anchor_index if placement == "after" else anchor_index - 1
+            upper_index = anchor_index + 1 if placement == "after" else anchor_index
+            lower = siblings[lower_index]["order_key"] if lower_index >= 0 else None
+            upper = siblings[upper_index]["order_key"] if upper_index < len(siblings) else None
+        else:
+            lower = siblings[-1]["order_key"] if siblings else None
+            upper = None
+        if lower is None:
+            return (upper // 2) if upper is not None and upper > 1 else 1000
+        if upper is None:
+            return lower + 1000
+        if upper - lower > 1:
+            return lower + ((upper - lower) // 2)
+        Repository._assign_order_keys(connection, [row["id"] for row in siblings])
+        return Repository._insertion_order_key(connection, bundle_id, parent_stream_id, anchor_stream_id, placement)
 
     @staticmethod
     def _is_descendant(connection: Any, candidate_id: str, ancestor_id: str) -> bool:

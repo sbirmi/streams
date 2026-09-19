@@ -20,7 +20,7 @@ class DatabaseTestCase(unittest.TestCase):
         with self.database.read() as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 2)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 3)
 
     def test_stream_update_records_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
@@ -82,8 +82,8 @@ class DatabaseTestCase(unittest.TestCase):
             [before["id"], first_child["id"], second_child["id"], after["id"]],
         )
         self.assertEqual(
-            [stream["position"] for stream in streams],
-            [0, 1, 2, 3],
+            [stream["order_key"] for stream in streams],
+            [1000, 2000, 3000, 4000],
         )
 
     def test_stale_stream_delete_returns_current_value(self) -> None:
@@ -173,6 +173,13 @@ class DatabaseTestCase(unittest.TestCase):
 
         streams = self.repository.list_streams(bundle["id"])
         self.assertEqual([stream["id"] for stream in streams], [first["id"], middle["id"], last["id"]])
+        self.assertEqual([stream["order_key"] for stream in streams], [1000, 1500, 2000])
+
+    def test_order_key_is_server_controlled(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        stream = self.repository.create_stream(bundle["id"], "First", "alice")
+        with self.assertRaises(ValueError):
+            self.repository.update_stream(stream["id"], stream["revision"], "alice", {"order_key": 5})
 
     def test_rooted_view_context_rejects_sibling_insertion_at_root(self) -> None:
         bundle = self.repository.create_bundle("Index", "alice")

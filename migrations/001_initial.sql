@@ -25,11 +25,11 @@ CREATE TABLE streams (
     close_status TEXT,
     tags TEXT NOT NULL DEFAULT '[]',
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-    position INTEGER NOT NULL DEFAULT 0
+    order_key INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX streams_by_bundle ON streams(bundle_id, position, created_at);
-CREATE INDEX streams_by_parent ON streams(parent_stream_id, position, created_at);
+CREATE INDEX streams_by_bundle ON streams(bundle_id, order_key, created_at);
+CREATE INDEX streams_by_parent ON streams(parent_stream_id, order_key, created_at);
 
 CREATE TABLE comments (
     id TEXT PRIMARY KEY,

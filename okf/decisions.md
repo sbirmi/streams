@@ -47,3 +47,6 @@
 
 - **Decision:** Declare every implemented keyboard action in `config/shortcuts.yaml` using a dependency-free flat action-to-binding-list format. Bindings may be aliases (`j`, `ArrowDown`) or sequences (`ds`, `Z Enter`, `ip`). The server validates that all known actions are present and rejects invalid or incomplete files; the browser dispatches only bindings returned by `/api/shortcuts`.
 - **Reason:** A partial insertion-only configuration left the effective keyboard API split between configuration and hardcoded JavaScript, making customization misleading and unsafe to reason about. Strict startup failure is preferable to silently accepting undocumented defaults.
+## Numeric sibling order keys
+
+Streams preserve hierarchy order with a server-controlled integer `order_key` for each sibling list. New items use gaps of 1000, middle insertion uses a midpoint, and a sibling list is resequenced only when no integer gap remains. This keeps common insertion writes small while retaining a simple SQLite sort. The value is informational in the modal and is not an editable API field.

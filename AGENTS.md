@@ -26,6 +26,12 @@ This is intended to be a small, fast web notes application for ideas, issues, th
 - Prefer reversible, observable operations and documented defaults.
 - Do not add authentication, authorization, or internet exposure assumptions without documenting the change.
 
+## Development workflow
+
+- Keep the primary chat session focused on planning, discussion, review, and coordination.
+- Do not use the primary chat session for development work when a subagent can perform it.
+- Delegate implementation, investigation, testing, and other development tasks to subagents whenever practical so the primary session’s context remains available for planning and discussion.
+
 ## Documentation map
 
 - Start with [`okf/README.md`](okf/README.md).

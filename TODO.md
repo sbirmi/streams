@@ -18,6 +18,8 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Add order-preserving sibling keys.** Replaced dense position handling with server-controlled numeric `order_key` gaps, midpoint insertion, migration/resequencing, and a read-only modal display.
+
 - [x] **Add stream owners and deadlines.** Added normalized owner/deadline persistence, create/edit modal fields, compact row metadata, validation, and tests.
 - [x] **Add stream tags to the modal.** Added compact create/edit input with comma/whitespace parsing, ordered normalization, persistence tests, and UI documentation.
 

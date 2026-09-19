@@ -44,6 +44,7 @@ The first screen under review is intentionally narrow in scope:
 - The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
 - Descriptions may occupy up to five rendered lines in the idle list view; editing can expand the text surface as needed.
 - Each stream row has a compact pencil affordance at the end of its summary line for opening the stream modal. The modal supports full-width summary and description fields, a compact inline metadata row for comma-separated owners, numeric priority, and an accessible date-only deadline input, followed by a compact Tags row. Tags accept commas or whitespace as separators and preserve the entered order after empty values are removed. Owners and tags have no suggested names; both may be empty. Required fields use a trailing `*` in their visible label while retaining semantic required attributes; the summary is currently the only required field. Create and edit use the same fields.
+- The stream modal shows the server-controlled numeric order key as a read-only field. It is informational and cannot be submitted as an edit; insertion and future movement operations determine it automatically.
 - Each stream row has a comment rail beside its stream content. The stream content is capped at 52% on wide screens (while sizing to its content when possible), has a 400px minimum, and is separated from the comment rail by a 20px gap. The rail begins 10px below the stream row’s top edge, has a 300px minimum, shows mock comments horizontally, and allows additional comments to be revealed by horizontal scrolling. Long comment bodies are visibly truncated with a multiline ellipsis; the complete text is reserved for the future modal. It has no decorative separator line.
 - Horizontal focus can move from stream content into the comment rail with `h`/`l` or the left/right arrows. The focused comment is highlighted and scrolled into view; vertical movement preserves the comment index when possible.
 - `Z Enter` or double-clicking a stream opens that stream as the current rooted view; `Z Backspace` returns to its parent or the `Index` root while preserving focus on the most recently selected stream when it still exists in the newly visible subtree. If that stream was deleted or is otherwise unavailable, focus moves to a safe visible fallback.
@@ -80,6 +81,10 @@ The default view is a tree-oriented priority view:
 2. Open items are grouped by priority, with P0 highest.
 3. Within a priority group, the secondary ordering is still to be decided: deadline-first or most-recently-updated-first.
 4. Closed items may be shown optionally, after open items.
+
+### Manual-order view
+
+The View selector offers `Priority`, `Recently touched`, `Manual order`, and `Stale`. Manual order preserves each sibling list’s stored `order_key` sequence, so inserting an item before or after an existing item keeps that placement visible in the hierarchy.
 
 ### Deadline-first view
 
