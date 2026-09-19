@@ -122,6 +122,10 @@ The HUD should:
 
 The same feedback model applies to `ip`, `in`, `ic`, `ds`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
 
+Modifier-only browser key events such as `Shift`, `Control`, `Alt`, `Meta`, and `CapsLock` are ignored while matching a pending sequence. This allows shifted bindings such as `zO` to be entered as `z`, `Shift`, `o` without treating the browser’s intermediate `Shift` event as an invalid command token. The final `event.key` remains the configured key (`O` in this example), and modifier-only keys are not commands themselves.
+
+The automated suite does not synthesize browser `keydown` ordering, so shifted-sequence behavior should also be smoke-tested in a browser.
+
 After confirmation, deletion sends the focused object’s revision to the API. On success, the UI refreshes the list and restores focus to the nearest surviving stream; for a comment, focus remains on its stream. On a stale response, the confirmation modal remains open and explains that the current item must be reviewed before retrying.
 
 The `Z` prefix uses the same feedback model and accepts `Enter` or `Backspace` as its second key. A pending `Z` must not change the view until the second key arrives.

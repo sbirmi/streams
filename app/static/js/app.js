@@ -81,7 +81,9 @@
   const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy" };
   function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
   const namedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Backspace", "Escape", "PageUp", "PageDown", "Home", "End", "Tab"]);
+  const modifierOnlyKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
   function bindingTokens(binding) { return binding.includes(" ") ? binding.trim().split(/\s+/) : (namedKeys.has(binding) ? [binding] : [...binding]); }
+  function isModifierOnlyKey(key) { return modifierOnlyKeys.has(key); }
   function shortcutEntries() { return Object.entries(state.shortcuts).flatMap(([action, bindings]) => bindings.map((binding) => ({ action, tokens: bindingTokens(binding) }))); }
   function matchingShortcuts(tokens) { return shortcutEntries().filter(({ tokens: binding }) => tokens.every((token, index) => binding[index] === token)); }
   function insertionPlacement(action) { return action.startsWith("insert_") ? action.replace("insert_", "") : null; }
@@ -182,6 +184,7 @@
     const cancelBinding = state.shortcuts.cancel_command?.some((binding) => bindingTokens(binding).length === 1 && bindingTokens(binding)[0] === event.key);
     if (cancelBinding && state.pendingCommand.length) { event.preventDefault(); state.pendingCommand = []; showCommandHud(""); return; }
     if (editorDialog.open || commentDialog.open || deleteDialog.open || shortcutsDialog.open || inTextField) return;
+    if (isModifierOnlyKey(event.key)) return;
     const candidate = [...state.pendingCommand, event.key];
     const exact = matchingShortcuts(candidate).filter(({ tokens }) => tokens.length === candidate.length);
     const prefixes = matchingShortcuts(candidate).filter(({ tokens }) => tokens.length > candidate.length);
