@@ -6,9 +6,9 @@ Requirement status is **proposed** unless stated otherwise.
 
 - **R1 — Create:** A user can create a note with a title and body.
 - **R2 — Read:** A user can view a note and its updates/comments.
-- **R3 — Update:** A user can edit note metadata and content.
+- **R3 — Update:** A user can edit note metadata and content, including an ordered owner list and optional date-only deadline.
 - **R4 — Append:** A user can add a short update/comment to a note without rewriting its history.
-- **R5 — Organize:** Notes can have a small amount of structure such as status, tags, and timestamps.
+- **R5 — Organize:** Notes can have a small amount of structure such as status, tags, timestamps, owners, and deadlines. Tags are an ordered list of non-empty strings.
 - **R6 — Find:** A user can list and search/filter notes sufficiently for a small shared collection.
 - **R7 — Conflict safety:** A stale editor cannot silently overwrite a newer revision. The user must be shown a conflict and given a safe merge/retry path.
 - **R8 — Shared access:** Any user who can reach the service can read and write according to the trusted-network model.

@@ -57,6 +57,36 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(conflict_response.status_code, 409)
         self.assertEqual(conflict_response.json["current"]["summary"], "Ship release")
 
+    def test_stream_api_persists_owners_and_deadline_on_create_and_update(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams",
+            json={"summary": "Prepare release", "actor": "alice", "owners": [" alice ", "", "bob"], "deadline": "2026-10-05"},
+        ).json["stream"]
+        self.assertEqual(stream["owners"], ["alice", "bob"])
+        self.assertEqual(stream["deadline"], "2026-10-05")
+        updated = self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"revision": stream["revision"], "actor": "alice", "changes": {"owners": ["carol"], "deadline": None}},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json["stream"]["owners"], ["carol"])
+        self.assertIsNone(updated.json["stream"]["deadline"])
+
+    def test_stream_api_persists_normalized_tags_on_create_and_update(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams",
+            json={"summary": "Prepare release", "actor": "alice", "tags": [" work ", "", "urgent"]},
+        ).json["stream"]
+        self.assertEqual(stream["tags"], ["work", "urgent"])
+        updated = self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"revision": stream["revision"], "actor": "alice", "changes": {"tags": ["later", "", "review"]}},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json["stream"]["tags"], ["later", "review"])
+
     def test_delete_api_uses_revision_preconditions_for_streams_and_comments(self) -> None:
         bundle_response = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"})
         bundle = bundle_response.json["bundle"]

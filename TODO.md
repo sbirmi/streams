@@ -18,6 +18,9 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Add stream owners and deadlines.** Added normalized owner/deadline persistence, create/edit modal fields, compact row metadata, validation, and tests.
+- [x] **Add stream tags to the modal.** Added compact create/edit input with comma/whitespace parsing, ordered normalization, persistence tests, and UI documentation.
+
 - [x] **Build comment editing.** Added keyboard and pointer comment editing, revision-checked PATCH saves, conflict-preserving modal behavior, and focus restoration documentation/tests.
 
 - [x] **Scaffold the application shell.** Added the Python/Flask app, project-local virtualenv workflow, pinned dependency and lock files, automatic test command, configuration loading, server-rendered page, static CSS/vanilla JS layout, health endpoint, and logging initialization. Verified with `./scripts/test` (2 tests passing).

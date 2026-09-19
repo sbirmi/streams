@@ -33,9 +33,16 @@
       <form id="editor-form" method="dialog">
         <div class="dialog-heading"><h2 id="editor-title">Edit stream</h2><button class="icon-button" type="button" data-action="close-editor" aria-label="Close">×</button></div>
         <p id="editor-placement" class="editor-placement"></p>
-        <label>Summary<input id="editor-summary" name="summary" required></label>
+        <label>Summary *<input id="editor-summary" name="summary" required></label>
         <label>Description<textarea id="editor-description" name="description" rows="7"></textarea></label>
-        <label>Priority (optional)<input id="editor-priority" name="priority" type="number" min="0" placeholder="No priority"></label>
+        <div class="editor-metadata" role="group" aria-label="Stream metadata">
+          <label class="editor-owners-field">Owners, comma-separated<input id="editor-owners" name="owners" type="text" autocomplete="off"></label>
+          <label class="editor-priority-field">Priority<input id="editor-priority" name="priority" type="number" min="0" inputmode="numeric"></label>
+          <label class="editor-deadline-field">Deadline<input id="editor-deadline" name="deadline" type="date"></label>
+        </div>
+        <div class="editor-tags-row">
+          <label>Tags<input id="editor-tags" name="tags" type="text" autocomplete="off"></label>
+        </div>
         <p id="editor-error" class="form-error" role="alert"></p>
         <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-editor">Cancel</button><button type="submit">Save</button></div>
       </form>

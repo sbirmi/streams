@@ -201,6 +201,44 @@ class DatabaseTestCase(unittest.TestCase):
 
         self.assertIsNone(stream["priority"])
 
+    def test_stream_owners_and_deadline_are_normalized_and_persisted(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        stream = self.repository.create_stream(
+            bundle["id"], "Plan release", "alice",
+            owners=[" alice ", "", "bob", "  "], deadline="2026-10-05",
+        )
+
+        self.assertEqual(stream["owners"], ["alice", "bob"])
+        self.assertEqual(stream["deadline"], "2026-10-05")
+        updated = self.repository.update_stream(
+            stream["id"], stream["revision"], "alice",
+            {"owners": ["carol", "", " dave "], "deadline": ""},
+        )
+        self.assertEqual(updated["owners"], ["carol", "dave"])
+        self.assertIsNone(updated["deadline"])
+
+    def test_stream_tags_are_normalized_and_ordered(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(
+            bundle["id"], "Tagged", "alice", tags=[" work ", "", "urgent", "  "]
+        )
+        self.assertEqual(stream["tags"], ["work", "urgent"])
+
+        updated = self.repository.update_stream(
+            stream["id"], stream["revision"], "alice", {"tags": ["later", "", "review"]}
+        )
+        self.assertEqual(updated["tags"], ["later", "review"])
+
+    def test_stream_tags_must_be_strings(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        with self.assertRaises(ValueError):
+            self.repository.create_stream(bundle["id"], "Tagged", "alice", tags=["valid", 2])
+
+    def test_stream_deadline_must_be_date_only(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        with self.assertRaises(ValueError):
+            self.repository.create_stream(bundle["id"], "Plan release", "alice", deadline="tomorrow")
+
 
 if __name__ == "__main__":
     unittest.main()

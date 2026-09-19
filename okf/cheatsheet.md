@@ -20,6 +20,8 @@
 - A stale write must produce a visible conflict, never a silent overwrite.
 - Deletion requires confirmation and a current revision; stale deletes produce the same visible conflict response.
 - URL access currently implies trusted read/write access.
+- Stream owners are entered as comma-separated names; whitespace-only entries are omitted. Deadlines use `YYYY-MM-DD` and are shown as `due YYYY-MM-DD`.
+- Stream tags are entered as comma- or whitespace-separated values; empty values are omitted and the remaining order is preserved.
 
 ## Release checklist
 

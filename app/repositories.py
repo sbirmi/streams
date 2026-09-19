@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -34,6 +35,48 @@ def now() -> str:
 
 def _json(value: Any) -> str:
     return json.dumps(value, separators=(",", ":"), sort_keys=True)
+
+
+def _normalize_owners(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("owners must be a list")
+    owners: list[str] = []
+    for owner in value:
+        if not isinstance(owner, str):
+            raise ValueError("owners must contain only strings")
+        owner = owner.strip()
+        if owner:
+            owners.append(owner)
+    return owners
+
+
+def _normalize_deadline(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError("deadline must be a date in YYYY-MM-DD format")
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError("deadline must be a valid date") from error
+    return value
+
+
+def _normalize_tags(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("tags must be a list")
+    tags: list[str] = []
+    for tag in value:
+        if not isinstance(tag, str):
+            raise ValueError("tags must contain only strings")
+        tag = tag.strip()
+        if tag:
+            tags.append(tag)
+    return tags
 
 
 def _decode(row: Any) -> dict[str, Any]:
@@ -96,8 +139,9 @@ class Repository:
     ) -> dict[str, Any]:
         stream_id = stream_id or new_id()
         timestamp = now()
-        owners = list(owners)
-        tags = list(tags)
+        owners = _normalize_owners(owners)
+        deadline = _normalize_deadline(deadline)
+        tags = _normalize_tags(tags)
         with self.database.transaction() as connection:
             self._require_bundle(connection, bundle_id)
             if root_stream_id:
@@ -170,6 +214,13 @@ class Repository:
         unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"unsupported stream fields: {sorted(unknown)}")
+        changes = dict(changes)
+        if "owners" in changes:
+            changes["owners"] = _normalize_owners(changes["owners"])
+        if "deadline" in changes:
+            changes["deadline"] = _normalize_deadline(changes["deadline"])
+        if "tags" in changes:
+            changes["tags"] = _normalize_tags(changes["tags"])
         with self.database.transaction() as connection:
             current_row = self._require_stream(connection, stream_id)
             current = _decode(current_row)
