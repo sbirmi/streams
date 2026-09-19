@@ -27,6 +27,16 @@ The eventual deployment must document:
 - rollback procedure
 - dependency and image update process
 
+## Run the tests
+
+From the repository root, run:
+
+```sh
+./scripts/test
+```
+
+The script creates or reuses `.venv`, installs the pinned dependencies from `requirements.lock`, and runs the test suite. A successful run ends with `OK`.
+
 ## Backup principle
 
 Back up the datastore as an application-consistent snapshot or through its supported dump mechanism. Test restoring into an isolated instance before relying on a backup. Record the last verified restore in the operational notes or deployment history.
