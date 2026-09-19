@@ -67,6 +67,16 @@ class DatabaseTestCase(unittest.TestCase):
         with self.assertRaises(NotFound):
             self.repository.create_stream(second["id"], "Child", "alice", parent_stream_id=parent["id"])
 
+    def test_stream_cannot_become_its_own_ancestor(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=parent["id"])
+
+        with self.assertRaises(ValueError):
+            self.repository.update_stream(
+                parent["id"], parent["revision"], "alice", {"parent_stream_id": child["id"]}
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

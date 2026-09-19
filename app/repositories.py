@@ -72,6 +72,11 @@ class Repository:
             raise NotFound(f"bundle {bundle_id}")
         return dict(row)
 
+    def list_bundles(self) -> list[dict[str, Any]]:
+        with self.database.read() as connection:
+            rows = connection.execute("SELECT * FROM bundles ORDER BY name, id").fetchall()
+        return [dict(row) for row in rows]
+
     def create_stream(
         self,
         bundle_id: str,
@@ -142,7 +147,10 @@ class Repository:
             current = _decode(current_row)
             self._check_revision("stream", stream_id, current, expected_revision)
             if "parent_stream_id" in changes and changes["parent_stream_id"]:
-                self._require_stream(connection, changes["parent_stream_id"], bundle_id=current["bundle_id"])
+                parent_id = changes["parent_stream_id"]
+                self._require_stream(connection, parent_id, bundle_id=current["bundle_id"])
+                if parent_id == stream_id or self._is_descendant(connection, parent_id, stream_id):
+                    raise ValueError("a stream cannot be its own ancestor")
             assignments = []
             parameters: list[Any] = []
             for field, value in changes.items():
@@ -250,6 +258,22 @@ class Repository:
         if row is None:
             raise NotFound(f"comment {comment_id}")
         return row
+
+    @staticmethod
+    def _is_descendant(connection: Any, candidate_id: str, ancestor_id: str) -> bool:
+        """Return whether candidate_id is below ancestor_id in the stream tree."""
+
+        current_id = candidate_id
+        while current_id is not None:
+            row = connection.execute(
+                "SELECT parent_stream_id FROM streams WHERE id = ?", (current_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            current_id = row[0]
+            if current_id == ancestor_id:
+                return True
+        return False
 
     @staticmethod
     def _check_revision(object_type: str, object_id: str, current: dict[str, Any], expected: int) -> None:

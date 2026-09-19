@@ -106,6 +106,8 @@ The current username is client-provided, unvalidated display attribution. It mus
 
 A bundle groups related streams, such as todos, recipes, or side projects. A topic is a possible label for a bundle or grouping within one; the exact vocabulary remains open. These are generic containers, not domain-specific schemas. A recipe is simply a user’s content organized with streams and child streams, with no special recipe support required.
 
+Future tree model: the underlying data may be one large tree rather than a set of independent bundle-owned trees. In that model, navigating bundles is itself tree navigation: the root tree is the starting view, and choosing a node as a bundle opens that node’s subtree as the bundle view. This is recorded as a design direction only; the initial implementation should preserve enough stable parent and identity information to support that evolution.
+
 ## SQLite data layer
 
 The database is migrated on application startup from ordered SQL files in `migrations/`. The repository layer owns SQL statements and exposes application-level operations rather than leaking connections into routes. Each write uses a short `BEGIN IMMEDIATE` transaction, foreign keys are enabled, and file-backed databases use WAL mode with a busy timeout.
@@ -115,6 +117,8 @@ The initial schema contains `bundles`, `streams`, `comments`, `history`, and `sc
 ## API expectations
 
 Use resource-oriented endpoints with explicit version or revision preconditions on mutating stream/comment operations. A write that supplies an old revision should return a conflict response and the current representation, rather than overwriting it. Deep links should use stable identifiers and encode view/filter/sort state in a bookmarkable form.
+
+The initial JSON API exposes bundle listing/creation, bundle stream listing/creation, stream read/update, and comment listing/creation/update under `/api/`. Stream reads include their comments for the first UI slice. Mutating stream/comment requests include an `actor` display name and stream updates include a `revision` plus a `changes` object; stale revisions return HTTP 409 with the current object.
 
 External-reference recognition and rendering is described in [Integrations](integrations.md). Markdown rendering must use an allowlisted/sanitized renderer.
 

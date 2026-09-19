@@ -14,6 +14,7 @@ These are intentionally unresolved and should be answered as implementation and 
 - Should pointer reordering use drag-and-drop, explicit move commands, or both?
 - How should reordering interact with different view sorts: manual hierarchy order, view-derived order, or both?
 - What is the clearest name for a top-level grouping: bundle, collection, notebook, workspace, or topic?
+- Should all data be represented as one global tree, with a bundle acting as a view rooted at a chosen node and bundle navigation treated as tree navigation?
 - What exact statuses, tags, sorting, and search behavior are needed?
 - In the default priority view, should items within a priority group sort by deadline or last update?
 - In flat views, how should child items and their parent context be represented?
