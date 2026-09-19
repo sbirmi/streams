@@ -18,6 +18,8 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Build comment editing.** Added keyboard and pointer comment editing, revision-checked PATCH saves, conflict-preserving modal behavior, and focus restoration documentation/tests.
+
 - [x] **Scaffold the application shell.** Added the Python/Flask app, project-local virtualenv workflow, pinned dependency and lock files, automatic test command, configuration loading, server-rendered page, static CSS/vanilla JS layout, health endpoint, and logging initialization. Verified with `./scripts/test` (2 tests passing).
 - [x] **Build the SQLite data layer.** Added ordered SQL migrations, WAL/foreign-key setup, repository operations for bundles/streams/comments, before/after history, independent revisions, and stale-write conflict results. Verified with `./scripts/test` (7 tests passing).
 - [x] **Build the deletion workflow.** Added revision-checked stream/comment deletes, confirmation UI for `ds`/`dc`, accessible stream-row deletion, ordered child promotion, delete audit history, and stale-delete tests/documentation.

@@ -31,6 +31,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R22 — Insertion and movement:** Users can insert an item before, after, or beneath another item, and move existing items around using keyboard and/or pointer interactions.
 - **R23 — Reordering usability:** After insertion or movement, the UI preserves context and makes the resulting position clear.
 - **R27 — Safe deletion:** A user can confirm deletion of a focused stream or comment through a two-key command, with revision-checked server-side deletion and visible conflicts for stale data.
+- **R28 — Comment editing:** A user can edit a focused comment by keyboard or pointer, with revision-checked saving and a visible conflict when the comment changed elsewhere.
 
 ## Non-functional
 

@@ -84,6 +84,27 @@ class ApplicationShellTestCase(unittest.TestCase):
         )
         self.assertEqual(delete_stream.status_code, 200)
 
+    def test_comment_update_api_uses_revision_preconditions(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Prepare release", "actor": "alice"}
+        ).json["stream"]
+        comment = self.client.post(
+            f"/api/streams/{stream['id']}/comments", json={"body": "Packaging", "actor": "alice"}
+        ).json["comment"]
+        updated = self.client.patch(
+            f"/api/comments/{comment['id']}",
+            json={"revision": comment["revision"], "actor": "bob", "body": "Packaging is complete"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.json["comment"]["revision"], 2)
+        conflict = self.client.patch(
+            f"/api/comments/{comment['id']}",
+            json={"revision": comment["revision"], "actor": "carol", "body": "Stale edit"},
+        )
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.json["current"]["body"], "Packaging is complete")
+
     def test_shortcuts_endpoint_returns_complete_configured_map(self) -> None:
         response = self.client.get("/api/shortcuts")
 

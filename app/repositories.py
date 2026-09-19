@@ -274,7 +274,9 @@ class Repository:
     def list_comments(self, stream_id: str) -> list[dict[str, Any]]:
         with self.database.read() as connection:
             rows = connection.execute(
-                "SELECT * FROM comments WHERE stream_id = ? ORDER BY created_at, id", (stream_id,)
+                # The comment rail indexes zero as the newest comment.  The id
+                # tie-breaker keeps ordering deterministic for same-second writes.
+                "SELECT * FROM comments WHERE stream_id = ? ORDER BY created_at DESC, id DESC", (stream_id,)
             ).fetchall()
         return [dict(row) for row in rows]
 

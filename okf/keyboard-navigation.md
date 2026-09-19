@@ -46,16 +46,16 @@ When moving vertically, preserve the current comment index where possible. If th
 The object under focus determines which modal opens:
 
 - Stream content opens the stream-content modal.
-- A comment opens the comment modal.
+- A comment opens the comment modal. In add mode, the modal creates a new comment; in edit mode, it loads the selected comment and saves through the revision-checked comment update endpoint.
 
 | Key | Action | Notes |
 | --- | --- | --- |
-| `e` | Edit the focused stream or comment | Opens the appropriate modal. |
-| `d s` | Delete the focused stream | Opens a stream-delete confirmation modal; never delete on a single `d`. |
-| `d c` | Delete the focused comment | Opens a comment-delete confirmation modal; never delete on a single `d`. |
+| `e` | Edit the focused stream or comment | Opens the stream editor or the selected comment editor. |
+| `d s` | Delete the focused stream | Opens a stream-delete confirmation modal; acts on the containing stream even when the comment rail has focus; never delete on a single `d`. |
+| `d c` | Delete the focused comment | Opens a comment-delete confirmation modal for the exact comment at `commentIndex`; it never implicitly targets the newest comment and is a no-op when stream content has focus; never delete on a single `d`. |
 | `a` | Add a comment to the focused stream | Opens the comment modal in create mode. |
 
-The modal must trap focus, support `Escape`, and return focus to the original stream/comment after close or save. A failed or stale save must return focus with the conflict state visible.
+The modal must trap focus, support `Escape`, and return focus to the original stream/comment after close or save. A failed or stale save must keep the modal open with a clear conflict state visible. Comment cards expose an accessible pointer edit button using the same edit modal.
 
 The stream row’s accessible delete button is the pointer equivalent of `d s` and uses the same confirmation and conflict handling.
 

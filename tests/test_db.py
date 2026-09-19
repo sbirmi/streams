@@ -108,6 +108,29 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(self.repository.get_stream(stream["id"])["revision"], 1)
         self.assertEqual(len(self.repository.list_history("comment", comment["id"])), 2)
 
+    def test_comments_are_listed_newest_first_with_deterministic_ties(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        older = self.repository.add_comment(stream["id"], "First update", "alice", comment_id="comment-1")
+        newest = self.repository.add_comment(stream["id"], "Second update", "bob", comment_id="comment-2")
+        tied = self.repository.add_comment(stream["id"], "Same-second update", "carol", comment_id="comment-3")
+
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE comments SET created_at = CASE id "
+                "WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END "
+                "WHERE id IN (?, ?, ?)",
+                (
+                    older["id"], "2026-01-01T00:00:00Z",
+                    newest["id"], "2026-01-01T00:00:01Z",
+                    tied["id"], "2026-01-01T00:00:01Z",
+                    older["id"], newest["id"], tied["id"],
+                ),
+            )
+
+        comments = self.repository.list_comments(stream["id"])
+        self.assertEqual([comment["id"] for comment in comments], [tied["id"], newest["id"], older["id"]])
+
     def test_comment_delete_requires_current_revision_and_records_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")

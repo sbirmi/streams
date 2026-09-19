@@ -42,10 +42,10 @@
     </dialog>
     <dialog id="comment-dialog" class="editor-dialog">
       <form id="comment-form" method="dialog">
-        <div class="dialog-heading"><h2>Add comment</h2><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div>
-        <label>Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label>
+        <div class="dialog-heading"><h2 id="comment-title">Add comment</h2><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div>
+        <label for="comment-body">Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label>
         <p id="comment-error" class="form-error" role="alert"></p>
-        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-comment">Cancel</button><button type="submit">Add comment</button></div>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-comment">Cancel</button><button id="comment-submit" type="submit">Add comment</button></div>
       </form>
     </dialog>
     <dialog id="delete-dialog" class="editor-dialog">
