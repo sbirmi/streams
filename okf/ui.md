@@ -125,3 +125,4 @@ Exact keys, discoverability, focus behavior, and customization remain open. Shor
 - Keep mouse targets compact but discoverable, including add-before/add-after/add-child and move controls.
 - Avoid requiring drag-and-drop for core operations; keyboard and ordinary controls must provide an equivalent path.
 - Preserve focus, scroll position, and the selected item after insertion or movement.
+- For keyboard insertion, render and scroll the insertion placeholder before opening the stream editor modal. Child insertion must show its placeholder even when the focused parent is currently collapsed.

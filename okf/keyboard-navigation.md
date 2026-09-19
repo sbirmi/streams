@@ -75,6 +75,8 @@ When the current view has no focused stream, `O` is a no-op because there is no 
 
 Moving and inserting must have mouse/pointer equivalents and must preserve selection, focus, and scroll position.
 
+When `i`, `o`, or `O` starts insertion, the UI renders and scrolls the insertion placeholder into view before opening the stream editor modal. The placeholder remains visible behind the modal and identifies the exact destination; `O` must expose that placeholder even if the focused parent was collapsed.
+
 Double-clicking a stream row is the pointer equivalent of `Z Enter`. Re-rooting changes the visible subtree but does not change stream hierarchy or folding state.
 
 ## Folding and expanding
