@@ -26,6 +26,7 @@ The first screen under review is intentionally narrow in scope:
 ```
 
 - The topmost bar is the **header**. It shows the Stream identity, bundle breadcrumbs/name, and the user/help controls; common prefixes such as `Bundles/` are omitted. The header uses the full available width, keeps its controls top-aligned, lets the identity/bundle name wrap within the left area when needed, and uses a subtle contrasting surface.
+- The username field starts blank when no username cookie exists. A non-empty username is retained in a browser cookie for subsequent visits; clearing the field clears the cookie. The value remains display attribution, not authentication.
 - The next bar is the **viewbar**. It is a compact three-column surface: a roughly 200px filter column, a flexible left-aligned view-controls column, and a right-aligned statistics column. The statistics column may shrink to two lines, but stays wide enough to show `12 open streams` / `touched today` without dropping to a separate row.
 - The header and viewbar remain fixed while the stream list scrolls beneath them.
 - Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
