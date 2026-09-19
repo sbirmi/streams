@@ -11,29 +11,53 @@ from .repositories import Repository
 from .routes import register_routes
 
 
-DEFAULT_SHORTCUTS = {"insert_before": "ip", "insert_after": "in", "insert_child": "ic"}
+SHORTCUT_ACTIONS = {
+    "move_left", "move_right", "move_up", "move_down", "edit", "add_comment",
+    "open_help", "cancel_command", "zoom_enter", "zoom_back", "delete_stream",
+    "delete_comment", "insert_before", "insert_after", "insert_child", "fold_open",
+    "fold_open_all", "fold_close", "fold_close_all", "fold_toggle",
+}
 
 
-def load_shortcuts(path: str) -> dict[str, str]:
-    """Load the deliberately small flat shortcut YAML format without a new dependency."""
+def _shortcut_values(value: str, line: str) -> list[str]:
+    """Parse a scalar or a simple YAML flow list without a YAML dependency."""
 
-    shortcuts = dict(DEFAULT_SHORTCUTS)
+    value = value.strip()
+    if value.startswith("[") != value.endswith("]"):
+        raise ValueError(f"malformed shortcut list: {line}")
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1].strip()
+        values = [] if not value else [part.strip() for part in value.split(",")]
+    else:
+        values = [value]
+    cleaned = [item.strip().strip("'\"") for item in values]
+    if not cleaned or any(not item for item in cleaned):
+        raise ValueError(f"shortcut binding is empty: {line}")
+    return cleaned
+
+
+def load_shortcuts(path: str) -> dict[str, list[str]]:
+    """Load the strict, flat action-to-bindings shortcut format."""
+
+    shortcuts: dict[str, list[str]] = {}
     try:
-        for line in Path(path).read_text(encoding="utf-8").splitlines():
-            line = line.split("#", 1)[0].strip()
+        for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
+            line = raw_line.split("#", 1)[0].strip()
             if not line:
                 continue
             key, separator, value = line.partition(":")
-            if not separator or key.strip() not in DEFAULT_SHORTCUTS:
-                raise ValueError(f"invalid shortcut entry: {line}")
-            value = value.strip()
-            if len(value) != 2:
-                raise ValueError(f"insertion shortcut must be a two-key command: {line}")
-            shortcuts[key.strip()] = value
-    except (OSError, ValueError) as error:
-        # Defaults keep a missing or invalid local config from preventing startup.
-        import logging
-        logging.getLogger(__name__).warning("using default shortcuts: %s", error)
+            key = key.strip()
+            if not separator or key not in SHORTCUT_ACTIONS or key in shortcuts:
+                raise ValueError(f"invalid or duplicate shortcut action: {raw_line.strip()}")
+            shortcuts[key] = _shortcut_values(value, raw_line.strip())
+        missing = SHORTCUT_ACTIONS - shortcuts.keys()
+        if missing:
+            raise ValueError(f"shortcut config is missing actions: {', '.join(sorted(missing))}")
+        bindings = [binding for values in shortcuts.values() for binding in values]
+        if len(bindings) != len(set(bindings)):
+            raise ValueError("shortcut bindings must be unique")
+    except OSError as error:
+        raise ValueError(f"cannot read shortcut config {path}: {error}") from error
     return shortcuts
 
 

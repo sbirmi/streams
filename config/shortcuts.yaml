@@ -1,4 +1,24 @@
-# Flat shortcut map. Changes take effect when the application restarts.
+# Strict flat action-to-bindings map. Changes take effect after restart.
+# A scalar or [comma, separated, bindings] is accepted. Compact sequences such
+# as ds and ip are split into key events by the browser; named keys may be
+# separated with spaces, e.g. Z Enter.
+move_left: [h, ArrowLeft]
+move_right: [l, ArrowRight]
+move_up: [k, ArrowUp]
+move_down: [j, ArrowDown]
+edit: e
+add_comment: a
+open_help: ?
+cancel_command: Escape
+zoom_enter: Z Enter
+zoom_back: Z Backspace
+delete_stream: ds
+delete_comment: dc
 insert_before: ip
 insert_after: in
 insert_child: ic
+fold_open: zo
+fold_open_all: zO
+fold_close: zc
+fold_close_all: zC
+fold_toggle: za

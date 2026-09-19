@@ -42,3 +42,8 @@
 - **Status:** accepted for initial implementation
 - **Decision:** Use `ip`, `in`, and `ic` for insertion before, next, and child. A lone `i` is only a pending command. In a rooted view, sibling insertion at the focused root and toolbar root insertion are blocked in the client. The API accepts optional `root_stream_id` context and validates supplied anchors against that subtree.
 - **Reason:** Single-key insertion made the destination ambiguous, and creating a sibling of a rooted view made an invisible mutation. The current stateless trusted-network API cannot know a browser’s active rooted view when the optional context is omitted, so this is deliberately documented as view safety rather than authorization.
+
+## D008 — Complete shortcut configuration as the keyboard source of truth
+
+- **Decision:** Declare every implemented keyboard action in `config/shortcuts.yaml` using a dependency-free flat action-to-binding-list format. Bindings may be aliases (`j`, `ArrowDown`) or sequences (`ds`, `Z Enter`, `ip`). The server validates that all known actions are present and rejects invalid or incomplete files; the browser dispatches only bindings returned by `/api/shortcuts`.
+- **Reason:** A partial insertion-only configuration left the effective keyboard API split between configuration and hardcoded JavaScript, making customization misleading and unsafe to reason about. Strict startup failure is preferable to silently accepting undocumented defaults.

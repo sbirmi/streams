@@ -128,12 +128,12 @@ The `Z` prefix uses the same feedback model and accepts `Enter` or `Backspace` a
 
 ## Shortcut configuration
 
-The default shortcut map lives in [`config/shortcuts.yaml`](../config/shortcuts.yaml) rather than being customized through the UI. Configuration changes take effect after an application restart. The flat YAML map retains the `insert_before`, `insert_after`, and `insert_child` keys, whose values are now two-key commands. Missing or invalid files, including legacy one-key insertion values, fall back to the documented defaults and emit a warning; this deliberate compatibility behavior avoids silently reintroducing single-key mutations.
+The complete shortcut map lives in [`config/shortcuts.yaml`](../config/shortcuts.yaml) rather than being customized through the UI. Configuration changes take effect after an application restart. Each action is declared exactly once as `action: binding` or `action: [binding, binding]`; compact sequences such as `ds` and `ip` are key-event sequences, while named keys use spaces (`Z Enter`, `ArrowDown`). The server loads this small flat format without a YAML dependency and exposes the resulting action-to-list map at `/api/shortcuts`. The browser derives both command prefixes and dispatch from that response, so a binding absent from the file is not accepted. Missing, unreadable, incomplete, duplicate, or malformed files fail application startup rather than silently restoring hardcoded defaults.
+
+`Escape` is configured for cancelling a pending command. Escape handling inside native modal dialogs remains the browser/dialog platform behavior; the configuration does not replace modal focus trapping or closing semantics.
 
 ## Open questions
 
 - Should right/left focus the comment card as a whole, or a specific link/control inside it?
-- Should the shortcut configuration grow beyond the initial flat insertion map, and if so should it adopt a full YAML parser/schema?
-- Should invalid shortcut configuration fail startup, warn and use defaults, or ignore only invalid entries?
 - Should `(` and `)` use the aunt fallback exactly as described, or stop when no same-depth target exists?
 - Should command HUD placement follow the focused row, or remain fixed in the viewbar?

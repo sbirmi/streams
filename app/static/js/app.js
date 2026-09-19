@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const state = { bundle: null, streams: [], selected: null, rootPath: [], focusColumn: "stream", commentIndex: 0, view: "priority", query: "", pendingCommand: "", editing: null, editingPlacement: null, deleteTarget: null, shortcuts: { insert_before: "ip", insert_after: "in", insert_child: "ic" } };
+  const state = { bundle: null, streams: [], selected: null, rootPath: [], focusColumn: "stream", commentIndex: 0, view: "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, deleteTarget: null, shortcuts: {} };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -9,6 +9,7 @@
   const commentDialog = document.querySelector("#comment-dialog");
   const deleteDialog = document.querySelector("#delete-dialog");
   const shortcutsDialog = document.querySelector("#shortcuts-dialog");
+  const shortcutList = document.querySelector("#shortcut-list");
   const commandHud = document.querySelector("#command-hud");
 
   async function api(path, options = {}) {
@@ -75,10 +76,16 @@
   function moveVertical(direction) { const items = navigationItems(); const index = items.findIndex((stream) => stream.id === state.selected); const target = items[Math.max(0, Math.min(items.length - 1, index + direction))]; if (target) { const preserve = state.focusColumn === "comments" && (target.comments || []).length; state.commentIndex = preserve ? Math.min(state.commentIndex, target.comments.length - 1) : 0; select(target.id, Boolean(preserve)); } }
   function moveHorizontal(direction) { const stream = selectedStream(); if (!stream) return; const count = (stream.comments || []).length; if (direction > 0 && state.focusColumn === "stream" && count) state.focusColumn = "comments"; else if (direction > 0 && state.focusColumn === "comments") state.commentIndex = Math.min(state.commentIndex + 1, count - 1); else if (direction < 0 && state.focusColumn === "comments" && state.commentIndex > 0) state.commentIndex -= 1; else if (direction < 0) state.focusColumn = "stream"; render(); document.querySelector(`[data-id="${CSS.escape(state.selected || "")}"]`)?.scrollIntoView({ block: "nearest" }); }
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
-  function fold(command) { const stream = selectedStream(); if (!stream) return; if (command === "zo") setExpanded(stream, true, false); if (command === "zc") setExpanded(stream, false, false); if (command === "zO") setExpanded(stream, true, true); if (command === "zC") setExpanded(stream, false, true); if (command === "za") stream.expanded = stream.expanded === false; render(); }
+  function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
-  function insertionPlacement(command) { return Object.entries(state.shortcuts).find(([, shortcut]) => shortcut === command)?.[0]?.replace("insert_", "") || null; }
-  function insertionPrefix(key) { return Object.values(state.shortcuts).some((shortcut) => shortcut.startsWith(key)); }
+  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy" };
+  function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
+  const namedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Backspace", "Escape", "PageUp", "PageDown", "Home", "End", "Tab"]);
+  function bindingTokens(binding) { return binding.includes(" ") ? binding.trim().split(/\s+/) : (namedKeys.has(binding) ? [binding] : [...binding]); }
+  function shortcutEntries() { return Object.entries(state.shortcuts).flatMap(([action, bindings]) => bindings.map((binding) => ({ action, tokens: bindingTokens(binding) }))); }
+  function matchingShortcuts(tokens) { return shortcutEntries().filter(({ tokens: binding }) => tokens.every((token, index) => binding[index] === token)); }
+  function insertionPlacement(action) { return action.startsWith("insert_") ? action.replace("insert_", "") : null; }
+  function nextShortcutHints(matches, length) { return [...new Set(matches.map(({ tokens }) => tokens[length]).filter(Boolean))].join("/"); }
   function insertionBlocked(placement) { return (placement === "before" || placement === "after") && currentRootId() && selectedStream()?.id === currentRootId(); }
   function showInsertionBlocked() { showCommandHud("Cannot insert beside the rooted stream; use ic to add a child"); }
   function requestRootInsertion() { if (currentRootId()) { showCommandHud("Cannot add a root stream while viewing a rooted stream"); return; } openEditor(null, "root"); }
@@ -138,7 +145,7 @@
     }
   }
   async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; render(); return; } const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: stream.expanded !== false })); state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; updateRootLabel(); render(); }
-  async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = { ...state.shortcuts, ...shortcutBody.shortcuts }; const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
+  async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = shortcutBody.shortcuts; renderShortcutHelp(); const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
 
   list.addEventListener("click", (event) => { const row = event.target.closest(".stream-row"); const toggle = event.target.closest("[data-toggle]"); const edit = event.target.closest("[data-edit]"); const deletion = event.target.closest("[data-delete]"); const comment = event.target.closest("[data-comment]"); if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); if (stream) { stream.expanded = stream.expanded === false; render(); } return; } if (edit) { select(edit.dataset.edit); openEditor(selectedStream()); return; } if (deletion) { select(deletion.dataset.delete); openDelete(selectedStream(), "stream"); return; } if (comment) { select(comment.dataset.comment); openComment(); return; } const card = event.target.closest(".comment-card"); if (card && row) { state.selected = row.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); render(); return; } if (row) select(row.dataset.id); });
   list.addEventListener("dblclick", (event) => { const row = event.target.closest(".stream-row"); if (row) { select(row.dataset.id); enterRoot(); } });
@@ -148,6 +155,39 @@
   document.querySelector('[data-action="add-stream"]').addEventListener("click", requestRootInsertion); document.querySelector('[data-action="refresh"]').addEventListener("click", loadStreams); document.querySelector('[data-action="shortcuts"]').addEventListener("click", () => shortcutsDialog.showModal()); document.querySelector('[data-action="close-shortcuts"]').addEventListener("click", () => shortcutsDialog.close());
   document.querySelectorAll('[data-action="close-editor"]').forEach((button) => button.addEventListener("click", () => editorDialog.close())); document.querySelectorAll('[data-action="close-comment"]').forEach((button) => button.addEventListener("click", () => commentDialog.close())); document.querySelectorAll('[data-action="close-delete"]').forEach((button) => button.addEventListener("click", () => deleteDialog.close()));
   editorDialog.addEventListener("close", () => { if (!state.editing) { state.pendingInsert = null; render(); } state.editing = null; state.editingPlacement = null; });
-  document.addEventListener("keydown", (event) => { const active = document.activeElement; if (event.key === "?" && !["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) && !active.isContentEditable) { shortcutsDialog.showModal(); return; } if (event.key === "Escape" && state.pendingCommand) { state.pendingCommand = ""; showCommandHud(""); return; } if (editorDialog.open || commentDialog.open || deleteDialog.open || shortcutsDialog.open || ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable) return; if (state.pendingCommand === "z") { if (["o", "O", "c", "C", "a"].includes(event.key)) { event.preventDefault(); fold(`z${event.key}`); } state.pendingCommand = ""; showCommandHud(""); return; } if (state.pendingCommand === "Z") { if (event.key === "Enter") { event.preventDefault(); enterRoot(); } else if (event.key === "Backspace") { event.preventDefault(); popRoot(); } state.pendingCommand = ""; showCommandHud(""); return; } if (state.pendingCommand === "d") { if (["s", "c"].includes(event.key)) { event.preventDefault(); if (event.key === "s") openDelete(selectedStream(), "stream"); else openDelete(selectedComment(), "comment"); } state.pendingCommand = ""; showCommandHud(""); return; } if (state.pendingCommand && insertionPlacement(`${state.pendingCommand}${event.key}`)) { const placement = insertionPlacement(`${state.pendingCommand}${event.key}`); event.preventDefault(); state.pendingCommand = ""; showCommandHud(""); if (placement === "child" && !selectedStream()) return; if (insertionBlocked(placement)) { showInsertionBlocked(); return; } openEditor(null, placement); return; } if (state.pendingCommand && insertionPrefix(state.pendingCommand)) { state.pendingCommand = ""; showCommandHud(""); return; } if (event.key === "z") { event.preventDefault(); state.pendingCommand = "z"; showCommandHud("[z] fold … o/O/c/C/a"); return; } if (event.key === "Z") { event.preventDefault(); state.pendingCommand = "Z"; showCommandHud("[Z] zoom … Enter / Backspace"); return; } if (event.key === "d") { event.preventDefault(); state.pendingCommand = "d"; showCommandHud("[d] delete … s stream / c comment"); return; } if (insertionPrefix(event.key)) { event.preventDefault(); state.pendingCommand = event.key; const choices = Object.values(state.shortcuts).filter((shortcut) => shortcut.startsWith(event.key)).map((shortcut) => shortcut.slice(1)).join("/"); showCommandHud(`[${event.key}] insert … ${choices}`); return; } if (event.key === "j" || event.key === "ArrowDown") { event.preventDefault(); moveVertical(1); } else if (event.key === "k" || event.key === "ArrowUp") { event.preventDefault(); moveVertical(-1); } else if (event.key === "h" || event.key === "ArrowLeft") { event.preventDefault(); moveHorizontal(-1); } else if (event.key === "l" || event.key === "ArrowRight") { event.preventDefault(); moveHorizontal(1); } else if (event.key === "e") { event.preventDefault(); openEditor(selectedStream()); } else if (event.key === "a") { event.preventDefault(); openComment(); } }, true);
+  function dispatchShortcut(action) {
+    if (action === "move_down") moveVertical(1);
+    else if (action === "move_up") moveVertical(-1);
+    else if (action === "move_left") moveHorizontal(-1);
+    else if (action === "move_right") moveHorizontal(1);
+    else if (action === "edit") openEditor(selectedStream());
+    else if (action === "add_comment") openComment();
+    else if (action === "open_help") shortcutsDialog.showModal();
+    else if (action === "zoom_enter") enterRoot();
+    else if (action === "zoom_back") popRoot();
+    else if (action === "delete_stream") openDelete(selectedStream(), "stream");
+    else if (action === "delete_comment") openDelete(selectedComment(), "comment");
+    else if (action.startsWith("fold_")) fold(action);
+    else if (action.startsWith("insert_")) {
+      const placement = insertionPlacement(action);
+      if (placement === "child" && !selectedStream()) return;
+      if (insertionBlocked(placement)) { showInsertionBlocked(); return; }
+      openEditor(null, placement);
+    }
+  }
+  document.addEventListener("keydown", (event) => {
+    event.stopImmediatePropagation();
+    const active = document.activeElement;
+    const inTextField = ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable;
+    const cancelBinding = state.shortcuts.cancel_command?.some((binding) => bindingTokens(binding).length === 1 && bindingTokens(binding)[0] === event.key);
+    if (cancelBinding && state.pendingCommand.length) { event.preventDefault(); state.pendingCommand = []; showCommandHud(""); return; }
+    if (editorDialog.open || commentDialog.open || deleteDialog.open || shortcutsDialog.open || inTextField) return;
+    const candidate = [...state.pendingCommand, event.key];
+    const exact = matchingShortcuts(candidate).filter(({ tokens }) => tokens.length === candidate.length);
+    const prefixes = matchingShortcuts(candidate).filter(({ tokens }) => tokens.length > candidate.length);
+    if (exact.length) { event.preventDefault(); state.pendingCommand = []; showCommandHud(""); dispatchShortcut(exact[0].action); return; }
+    if (prefixes.length) { event.preventDefault(); state.pendingCommand = candidate; showCommandHud(`[${candidate.join(" ")}] … ${nextShortcutHints(prefixes, candidate.length)}`); return; }
+    if (state.pendingCommand.length) { state.pendingCommand = []; showCommandHud(""); return; }
+  }, true);
   loadUsername(); load();
 })();

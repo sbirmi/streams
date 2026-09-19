@@ -84,17 +84,37 @@ class ApplicationShellTestCase(unittest.TestCase):
         )
         self.assertEqual(delete_stream.status_code, 200)
 
-    def test_shortcuts_endpoint_returns_two_key_insert_commands(self) -> None:
+    def test_shortcuts_endpoint_returns_complete_configured_map(self) -> None:
         response = self.client.get("/api/shortcuts")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["shortcuts"], {"insert_before": "ip", "insert_after": "in", "insert_child": "ic"})
+        shortcuts = response.json["shortcuts"]
+        self.assertEqual(shortcuts["insert_before"], ["ip"])
+        self.assertEqual(shortcuts["delete_stream"], ["ds"])
+        self.assertEqual(shortcuts["zoom_back"], ["Z Backspace"])
+        self.assertEqual(shortcuts["move_down"], ["j", "ArrowDown"])
 
-    def test_legacy_single_key_shortcuts_fall_back_to_defaults(self) -> None:
+    def test_shortcut_config_requires_every_action_and_rejects_legacy_map(self) -> None:
         path = Path(self.tempdir.name) / "shortcuts.yaml"
         path.write_text("insert_before: i\n", encoding="utf-8")
 
-        self.assertEqual(load_shortcuts(str(path)), {"insert_before": "ip", "insert_after": "in", "insert_child": "ic"})
+        with self.assertRaises(ValueError):
+            load_shortcuts(str(path))
+
+    def test_shortcut_config_supports_alias_lists_and_named_sequences(self) -> None:
+        path = Path(self.tempdir.name) / "shortcuts.yaml"
+        path.write_text("\n".join([
+            "move_left: [h, ArrowLeft]", "move_right: l", "move_up: k", "move_down: j",
+            "edit: e", "add_comment: a", "open_help: ?", "cancel_command: Escape",
+            "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds",
+            "delete_comment: dc", "insert_before: ip", "insert_after: in", "insert_child: ic",
+            "fold_open: zo", "fold_open_all: zO", "fold_close: zc", "fold_close_all: zC",
+            "fold_toggle: za",
+        ]) + "\n", encoding="utf-8")
+
+        shortcuts = load_shortcuts(str(path))
+        self.assertEqual(shortcuts["move_left"], ["h", "ArrowLeft"])
+        self.assertEqual(shortcuts["zoom_enter"], ["Z Enter"])
 
     def test_api_root_context_rejects_sibling_of_rooted_view(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]

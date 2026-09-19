@@ -48,6 +48,7 @@ The first screen under review is intentionally narrow in scope:
 - Horizontal focus can move from stream content into the comment rail with `h`/`l` or the left/right arrows. The focused comment is highlighted and scrolled into view; vertical movement preserves the comment index when possible.
 - `Z Enter` or double-clicking a stream opens that stream as the current rooted view; `Z Backspace` returns to its parent or the `Index` root while preserving focus on the most recently selected stream when it still exists in the newly visible subtree. If that stream was deleted or is otherwise unavailable, focus moves to a safe visible fallback.
 - In a rooted view, inserting before or after the focused view root is blocked because it would create an invisible sibling outside the view. Adding a root stream from the toolbar is blocked for the same reason; inserting a child remains available.
+- The keyboard-help dialog is generated from the complete server-loaded shortcut map, so configured aliases and sequences remain discoverable without a second hardcoded shortcut list.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 
 ## Primary hierarchy
