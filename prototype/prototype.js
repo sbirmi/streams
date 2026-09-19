@@ -10,17 +10,16 @@
     { id: "old", parent: null, summary: "Look into the old side project", description: "Not urgent. Revisit when the current project is quieter.", priority: 2, deadline: null, updated: "3w ago", owners: ["alex"], tags: ["side-project"], open: false, expanded: false, children: [] },
   ];
 
-  const state = { streams: structuredClone(initialStreams), selected: "ship", view: "priority", showClosed: false, query: "" };
+  const state = { streams: structuredClone(initialStreams), selected: "ship", view: "priority", query: "" };
   const list = document.querySelector("#stream-list");
   const viewSelect = document.querySelector("#view-select");
-  const showClosed = document.querySelector("#show-closed");
   const search = document.querySelector("#search");
 
   function visibleStreams() {
     return state.streams.filter((stream) => {
       const query = state.query.toLowerCase();
       const matchesQuery = !query || stream.summary.toLowerCase().includes(query) || stream.tags.some((tag) => tag.includes(query)) || stream.owners.some((owner) => owner.includes(query));
-      return matchesQuery && (state.showClosed || stream.open);
+      return matchesQuery && stream.open;
     });
   }
   function roots(items) { return items.filter((stream) => !stream.parent); }
@@ -82,9 +81,8 @@
     if (editable) editable.contentEditable = "false";
   }, true);
   viewSelect.addEventListener("change", () => { state.view = viewSelect.value; render(); });
-  showClosed.addEventListener("change", () => { state.showClosed = showClosed.checked; render(); });
   search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
-  document.querySelector('[data-action="reset"]').addEventListener("click", () => { state.streams = structuredClone(initialStreams); state.selected = "ship"; state.view = "priority"; state.showClosed = false; state.query = ""; viewSelect.value = "priority"; showClosed.checked = false; search.value = ""; render(); });
+  document.querySelector('[data-action="reset"]').addEventListener("click", () => { state.streams = structuredClone(initialStreams); state.selected = "ship"; state.view = "priority"; state.query = ""; viewSelect.value = "priority"; search.value = ""; render(); });
   const dialog = document.querySelector("#shortcuts-dialog");
   document.querySelector('[data-action="shortcuts"]').addEventListener("click", () => dialog.showModal());
   document.querySelector('[data-action="close-shortcuts"]').addEventListener("click", () => dialog.close());

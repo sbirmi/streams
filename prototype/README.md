@@ -1,4 +1,4 @@
-# Stream UI prototype
+# Streams UI prototype
 
 This is a standalone, dependency-free prototype for reviewing the first-pass UI direction. It is intentionally separate from the application implementation and uses in-memory mock data.
 

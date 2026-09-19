@@ -17,7 +17,7 @@ The hierarchy is not limited to one child level. Rows may be nested to multiple 
 The first screen under review is intentionally narrow in scope:
 
 ```text
-[S] stream : Todos                                      [username] [?]
+[S] streams : Todos                                    [username] [?]
 [ search/filter ]          12 open streams · touched today       [Priority v]
 
 [ ] last update  Summary goes here
@@ -25,15 +25,18 @@ The first screen under review is intentionally narrow in scope:
     Description, if it exists
 ```
 
-- The top bar is the topmost element. It shows the Stream identity, bundle breadcrumbs/name, and the user/help controls; common prefixes such as `Bundles/` are omitted.
-- The next bar contains search, compact collection statistics, and the view selector.
+- The topmost bar is the **header**. It shows the Stream identity, bundle breadcrumbs/name, and the user/help controls; common prefixes such as `Bundles/` are omitted. The header uses the full available width, keeps its controls top-aligned, lets the identity/bundle name wrap within the left area when needed, and uses a subtle contrasting surface.
+- The next bar is the **viewbar**. It is a compact three-column surface: a roughly 200px filter column, a flexible left-aligned view-controls column, and a right-aligned statistics column. The statistics column may shrink to two lines, but stays wide enough to show `12 open streams` / `touched today` without dropping to a separate row.
 - Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
 - The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.
 - Priority is the first tag and is styled like a tag with a distinct color.
 - Owners and tags use smaller text.
 - Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
 - Comments, add-stream controls, and reordering controls are deliberately not shown in this prototype.
+- Closed-item filtering is deliberately not shown in this prototype; the first pass displays open streams only.
 - `j`/`k` navigate the currently visible rows only; collapsed descendants are skipped. Focus indication follows the row indentation at every nesting depth.
+- The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
+- Descriptions may occupy up to five rendered lines in the idle list view; editing can expand the text surface as needed.
 
 ## Primary hierarchy
 
