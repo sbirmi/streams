@@ -16,7 +16,7 @@ CREATE TABLE streams (
     description TEXT NOT NULL DEFAULT '',
     owners TEXT NOT NULL DEFAULT '[]',
     creator TEXT NOT NULL,
-    priority INTEGER NOT NULL DEFAULT 0 CHECK (priority >= 0),
+    priority INTEGER CHECK (priority >= 0),
     snooze_until TEXT,
     deadline TEXT,
     created_at TEXT NOT NULL,

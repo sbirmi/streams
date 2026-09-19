@@ -32,9 +32,10 @@
     <dialog id="editor-dialog" class="editor-dialog">
       <form id="editor-form" method="dialog">
         <div class="dialog-heading"><h2 id="editor-title">Edit stream</h2><button class="icon-button" type="button" data-action="close-editor" aria-label="Close">×</button></div>
+        <p id="editor-placement" class="editor-placement"></p>
         <label>Summary<input id="editor-summary" name="summary" required></label>
         <label>Description<textarea id="editor-description" name="description" rows="7"></textarea></label>
-        <label>Priority<input id="editor-priority" name="priority" type="number" min="0" value="0"></label>
+        <label>Priority (optional)<input id="editor-priority" name="priority" type="number" min="0" placeholder="No priority"></label>
         <p id="editor-error" class="form-error" role="alert"></p>
         <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-editor">Cancel</button><button type="submit">Save</button></div>
       </form>

@@ -84,7 +84,7 @@ class Repository:
         creator: str,
         description: str = "",
         owners: Iterable[str] = (),
-        priority: int = 0,
+        priority: int | None = None,
         parent_stream_id: str | None = None,
         deadline: str | None = None,
         snooze_until: str | None = None,

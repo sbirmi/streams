@@ -8,7 +8,7 @@ The UI should optimize for fast rendering, low interaction cost, and information
 
 The current prototype direction favors a dense, list-like surface: minimal padding, no unnecessary cards, one compact header/control area, and stream rows that resemble a semantic unordered list. The first UI pass includes recent comments in a horizontally scrollable comment rail beside each stream; this placement has proved useful for understanding the surrounding conversation without opening another view. Add-stream and reordering controls are also deferred while the reading/editing surface is being evaluated.
 
-Priority is rendered as the first metadata tag (for example, `#P0`) and color-coded like any other tag. The summary has no unrelated trailing labels; update time, owners, priority, tags, and deadline live in the metadata line beneath it.
+When set, priority is rendered as the first metadata tag (for example, `#P0`) and color-coded like any other tag. Priority may be empty. The summary has no unrelated trailing labels; update time, owners, priority, tags, and deadline live in the metadata line beneath it.
 
 The hierarchy is not limited to one child level. Rows may be nested to multiple levels, with indentation and the focus indicator shifting together at each depth.
 

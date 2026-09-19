@@ -110,7 +110,7 @@ def register_routes(app: Flask) -> None:
         result = repository().create_stream(
             bundle_id=bundle_id, summary=summary.strip(), creator=actor(data),
             description=data.get("description", ""), owners=data.get("owners", []),
-            priority=data.get("priority", 0), parent_stream_id=data.get("parent_stream_id"),
+            priority=data.get("priority"), parent_stream_id=data.get("parent_stream_id"),
             deadline=data.get("deadline"), snooze_until=data.get("snooze_until"),
             tags=data.get("tags", []), stream_id=data.get("id"),
             anchor_stream_id=data.get("anchor_stream_id"), placement=data.get("placement"),

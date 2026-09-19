@@ -75,7 +75,7 @@ The working domain vocabulary is **topic**, **stream**, and **comment**. “Issu
 - Markdown description
 - owners/assignees (initially placeholder string/list values, not authenticated identities)
 - creator attribution (separate from owner/assignee)
-- priority, with P0 as highest priority
+- optional priority, with P0 as highest priority when set
 - snooze-until date
 - deadline
 - creation, last-update, and close timestamps

@@ -20,7 +20,7 @@ class DatabaseTestCase(unittest.TestCase):
         with self.database.read() as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 1)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 2)
 
     def test_stream_update_records_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
@@ -87,6 +87,12 @@ class DatabaseTestCase(unittest.TestCase):
 
         streams = self.repository.list_streams(bundle["id"])
         self.assertEqual([stream["id"] for stream in streams], [first["id"], middle["id"], last["id"]])
+
+    def test_stream_priority_can_be_empty(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Unprioritized", "alice", priority=None)
+
+        self.assertIsNone(stream["priority"])
 
 
 if __name__ == "__main__":
