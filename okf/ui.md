@@ -35,6 +35,7 @@ The first screen under review is intentionally narrow in scope:
 - The username field starts blank when no username cookie exists. A non-empty username is retained in a browser cookie for subsequent visits; clearing the field clears the cookie. The value remains display attribution, not authentication.
 - The next bar is the **viewbar**. It is a compact three-column surface: a roughly 200px filter column, a flexible left-aligned view-controls column, and a right-aligned statistics column. The statistics column may shrink to two lines, but stays wide enough to show `12 open streams` / `touched today` without dropping to a separate row.
 - The header breadcrumbs show the full rooted path, such as `Index / parent / effort1`; the Index/root view keeps the existing bundle name display. The viewbar’s open/total stream counts cover the current rooted subtree and intentionally do not change when the search filter narrows the displayed rows.
+- The browser tab title identifies the current destination as `streams: Index`, `streams: Dashboard`, `streams: Transactions`, or `streams: <root summary>` for a rooted view.
 - The header and viewbar remain fixed while the stream list scrolls beneath them.
 - Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
 - The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.

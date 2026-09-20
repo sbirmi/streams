@@ -20,6 +20,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b"<title>streams: Index</title>", response.data)
         self.assertIn(b"Test Stream", response.data)
         self.assertIn(b"Loading streams", response.data)
         self.assertIn(b'data-action="copy-link"', response.data)
@@ -36,6 +37,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         response = self.client.get("/dashboard")
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn(b"<title>streams: Dashboard</title>", response.data)
         self.assertIn(b"data-action=\"dashboard\"", response.data)
 
     def test_stream_api_create_read_and_conflict(self) -> None:
@@ -328,6 +330,7 @@ class ApplicationShellTestCase(unittest.TestCase):
 
         page = self.client.get("/transactions?q=updated")
         self.assertEqual(page.status_code, 200)
+        self.assertIn(b"<title>streams: Transactions</title>", page.data)
         self.assertIn(b"Transaction history", page.data)
         self.assertIn(b"transaction-query", page.data)
         self.assertIn(b"transactions.js", page.data)

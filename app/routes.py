@@ -68,11 +68,11 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/")
     def index() -> str:
-        return render_template("index.html", app_name=current_app.config["APP_NAME"])
+        return render_template("index.html", app_name=current_app.config["APP_NAME"], page_title="Index")
 
     @app.get("/dashboard")
     def dashboard() -> str:
-        return render_template("index.html", app_name=current_app.config["APP_NAME"])
+        return render_template("index.html", app_name=current_app.config["APP_NAME"], page_title="Dashboard")
 
     @app.get("/healthz")
     def healthz() -> Response:

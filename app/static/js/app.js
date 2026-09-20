@@ -232,9 +232,10 @@
   function selectedComment() { const stream = selectedStream(); if (state.focusColumn !== "comments") return null; return stream?.comments?.find((comment) => comment.id === state.commentId) || stream?.comments?.[state.commentIndex] || null; }
   function restoreCommentFocus() { if (state.focusColumn !== "comments" || !state.selected) return; const stream = selectedStream(); const index = state.commentId ? stream?.comments?.findIndex((comment) => comment.id === state.commentId) ?? -1 : state.commentIndex; if (index >= 0) state.commentIndex = index; const row = document.querySelector(`[data-id="${CSS.escape(state.selected)}"]`); const card = row?.querySelector(`[data-comment-index="${state.commentIndex}"]`); card?.focus(); card?.scrollIntoView({ block: "nearest", inline: "nearest" }); }
   function updateRootLabel() {
-    if (state.dashboard) { document.querySelector("#bundle-name").textContent = "Favorites"; return; }
+    if (state.dashboard) { document.querySelector("#bundle-name").textContent = "Favorites"; document.title = "streams: Dashboard"; return; }
     const path = state.rootPath.map((id) => selectedStreamById(id)?.summary).filter(Boolean);
     document.querySelector("#bundle-name").textContent = path.length ? ["Index", ...path].join(" / ") : state.bundle?.name || "Index";
+    document.title = `streams: ${path[path.length - 1] || "Index"}`;
   }
   function updateChrome() { document.querySelector("#view-select").closest(".compact-control").hidden = state.dashboard; document.querySelector("[data-action=\"dashboard\"]").hidden = state.dashboard; document.querySelector("[data-action=\"index\"]").hidden = !state.dashboard; document.querySelector("#dashboard-label").hidden = !state.dashboard; }
   function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; state.commentId = null; } render(); savePresentationAndUrl(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
