@@ -204,6 +204,8 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(shortcuts["move_down"], ["j", "ArrowDown"])
         self.assertEqual(shortcuts["move_previous_sibling"], ["("])
         self.assertEqual(shortcuts["move_next_sibling"], [")"])
+        self.assertEqual(shortcuts["transaction_undo"], ["tu"])
+        self.assertEqual(shortcuts["transaction_redo"], ["tr"])
 
     def test_delete_block_api_deletes_selected_subtree(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
@@ -235,11 +237,37 @@ class ApplicationShellTestCase(unittest.TestCase):
             "fold_toggle: za", "start_move: m", "start_selection: v", "move_before: p",
             "move_after: n", "move_child: c", "move_promote: u", "mark_open: so",
             "mark_resolved: sr", "mark_no_action: sn",
+            "transaction_undo: tu", "transaction_redo: tr",
         ]) + "\n", encoding="utf-8")
 
         shortcuts = load_shortcuts(str(path))
         self.assertEqual(shortcuts["move_left"], ["h", "ArrowLeft"])
         self.assertEqual(shortcuts["zoom_enter"], ["Z Enter"])
+
+    def test_transaction_routes_undo_redo_and_list_history(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Draft", "actor": "alice"}
+        ).json["stream"]
+        updated = self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"actor": "bob", "revision": stream["revision"], "changes": {"summary": "Final"}},
+        )
+        self.assertEqual(updated.status_code, 200)
+
+        response = self.client.post("/api/transactions/undo", json={"actor": "carol"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["transaction"]["kind"], "undo")
+        self.assertEqual(response.json["transaction"]["original_transaction"]["actor"], "bob")
+        self.assertEqual(response.json["focus"]["stream_id"], stream["id"])
+
+        response = self.client.post("/api/transactions/redo", json={"actor": "carol"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["transaction"]["kind"], "redo")
+
+        response = self.client.get("/api/transactions")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.json["transactions"]), 4)
 
     def test_api_root_context_rejects_sibling_of_rooted_view(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]

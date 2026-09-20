@@ -12,11 +12,14 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Later
 
+- [ ] Build the searchable `/transactions` history explorer with retained abandoned branches.
 - [ ] Add lightweight edit presence/soft-lock indicators.
 - [ ] Add configurable external-reference recognition and scoped plugin rendering styles.
 - [ ] Add backup/restore commands and deployment packaging.
 
 ## Completed
+
+- [x] **Add shared transaction undo/redo.** Added durable transaction envelopes above object history, atomic revision-checked undo/redo for existing mutations including bulk operations, retained abandoned redo branches, `tu`/`tr` shortcuts, affected-stream focus metadata, and compact UI feedback. Verified with `./scripts/test` (49 tests passing).
 
 - [x] **Implement general stream move mode.** Added atomic revision-checked before/after/child moves, promotion, contiguous sibling blocks, keyboard/pointer entry, and descriptive command HUD hints.
 

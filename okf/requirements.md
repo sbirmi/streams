@@ -35,6 +35,8 @@ Requirement status is **proposed** unless stated otherwise.
 - **R27 — Safe deletion:** A user can confirm deletion of a focused stream or comment through a two-key command, or deletion of a completed visual block through `dv`, with revision-checked server-side deletion and visible conflicts for stale data. Deleting selected stream roots deletes their complete subtrees and comments atomically.
 - **R28 — Comment editing:** A user can edit a focused comment by keyboard or pointer, with revision-checked saving and a visible conflict when the comment changed elsewhere.
 - **R29 — Shared favorites dashboard:** A user can mark any stream as a favorite and view all favorite streams on a separate flat dashboard, with open streams first, closed/resolved streams afterward, and each group ordered by most recent update. Favorite rows show hierarchy breadcrumbs and can open the corresponding rooted hierarchy view.
+- **R32 — Transaction undo/redo:** A mutating operation, including an atomic bulk operation, is recorded as one transaction with enough before/after information to support revision-checked undo and redo. Undo and redo are shared workspace operations, and undoing another user’s transaction remains visible in history.
+- **R33 — Transaction navigation:** A successful undo or redo returns enough affected-object context for the client to restore the relevant rooted view and focus the affected stream or comment when possible.
 
 ## Non-functional
 
@@ -44,6 +46,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **N4 — Security:** Dependencies, build inputs, configuration, and exposed endpoints must be reviewable and minimized.
 - **N5 — Operability:** Startup, health, logs, backup, restore, and upgrade procedures are documented.
 - **N6 — Data portability:** The stored representation should be straightforward to inspect and export.
+- **N7 — Transaction durability:** Transaction records and their undo/redo relationships survive restart and are included in backup/restore operations.
 
 ## Acceptance baseline
 

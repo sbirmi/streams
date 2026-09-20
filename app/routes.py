@@ -40,6 +40,10 @@ def register_routes(app: Flask) -> None:
     def handle_bad_request(error: ValueError) -> tuple[Response, int]:
         return jsonify(error="invalid_request", message=str(error)), 400
 
+    @app.errorhandler(NotImplementedError)
+    def handle_unsupported(error: NotImplementedError) -> tuple[Response, int]:
+        return jsonify(error="transaction_support_unavailable", message=str(error)), 501
+
     @app.before_request
     def assign_request_context() -> None:
         g.request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
@@ -76,6 +80,50 @@ def register_routes(app: Flask) -> None:
     @app.get("/api/shortcuts")
     def shortcuts() -> Response:
         return jsonify(shortcuts=current_app.config["SHORTCUTS"])
+
+    def transaction_method(name: str) -> Any:
+        method = getattr(repository(), name, None)
+        if method is None:
+            raise NotImplementedError(
+                f"repository does not implement {name}"
+            )
+        return method
+
+    @app.get("/api/transactions")
+    def list_transactions() -> Response:
+        """List transaction metadata when the repository supports transactions."""
+
+        method = transaction_method("list_transactions")
+        limit = 100
+        if request.args.get("limit") is not None:
+            try:
+                limit = int(request.args["limit"])
+            except ValueError as error:
+                raise ValueError("limit must be an integer") from error
+        return jsonify(transactions=method(limit=limit))
+
+    @app.get("/api/transactions/<transaction_id>")
+    def get_transaction(transaction_id: str) -> Response:
+        """Return transaction metadata, including focus context when available."""
+
+        return jsonify(transaction=transaction_method("get_transaction")(transaction_id))
+
+    def apply_transaction_action(action: str) -> Response:
+        data = payload()
+        transaction_id = data.get("transaction_id")
+        if transaction_id is not None and not isinstance(transaction_id, str):
+            raise ValueError("transaction_id must be a string")
+        method_name = "undo_latest" if action == "undo_transaction" else "redo_latest"
+        result = transaction_method(method_name)(actor(data), transaction_id=transaction_id)
+        return jsonify(transaction=result, focus=result.get("focus"))
+
+    @app.post("/api/transactions/undo")
+    def undo_transaction() -> Response:
+        return apply_transaction_action("undo_transaction")
+
+    @app.post("/api/transactions/redo")
+    def redo_transaction() -> Response:
+        return apply_transaction_action("redo_transaction")
 
     @app.get("/api/bundles")
     def list_bundles() -> Response:

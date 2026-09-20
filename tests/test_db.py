@@ -20,7 +20,42 @@ class DatabaseTestCase(unittest.TestCase):
         with self.database.read() as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 5)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 6)
+
+    def test_transaction_envelope_and_shared_undo_redo(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        changed = self.repository.update_stream(stream["id"], 1, "bob", {"summary": "Ship release"})
+
+        transactions = self.repository.list_transactions()
+        self.assertEqual(transactions[0]["action_type"], "update_stream")
+        self.assertEqual(transactions[0]["kind"], "mutation")
+        self.assertEqual(self.repository.undo_latest("carol")["kind"], "undo")
+        self.assertEqual(self.repository.get_stream(stream["id"])["summary"], "Prepare release")
+        self.assertEqual(self.repository.redo_latest("carol")["kind"], "redo")
+        self.assertEqual(self.repository.get_stream(stream["id"])["summary"], changed["summary"])
+
+    def test_undo_can_continue_after_redo(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        self.repository.update_stream(stream["id"], 1, "alice", {"summary": "Ship release"})
+
+        self.repository.undo_latest("alice")
+        self.repository.undo_latest("alice")
+        self.repository.redo_latest("alice")
+        self.repository.undo_latest("alice")
+
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(stream["id"])
+
+    def test_new_mutation_abandons_redo_path(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        self.repository.update_stream(stream["id"], 1, "alice", {"summary": "First"})
+        self.repository.undo_latest("bob")
+        self.repository.update_stream(stream["id"], 3, "bob", {"summary": "Different"})
+        with self.assertRaises(ValueError):
+            self.repository.redo_latest("alice")
 
     def test_stream_favorite_defaults_false_and_updates_with_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")

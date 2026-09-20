@@ -101,6 +101,10 @@ Comments are append-oriented. A comment’s order can be derived from creation/o
 
 Mutations should produce history entries with object, actor placeholder, timestamp, changed fields, and before/after values. History must be usable for audit and targeted recovery without requiring every object to expose its full history in the primary view.
 
+The transaction layer groups the object-level history entries produced by one user-visible mutation into one atomic transaction envelope. The envelope records a stable transaction ID, actor display name, creation time, action type/summary, affected objects, and the relationship to any transaction it undoes or redoes. Before/after values must be sufficient for a semantic inverse of supported operations, including subtree deletion/restoration and bulk move or status changes. Undo and redo are themselves recorded operations; they do not erase the original transaction. The initial user-visible model is a shared linear undo/redo path. A new ordinary transaction after an undo abandons the redo path for normal navigation, while retaining the abandoned branch for backend history and future inspection.
+
+The future `/transactions` page is a read-only history explorer. It may search by transaction, actor, time, action, object ID, and state, and may show abandoned branches. It is a query/presentation layer over durable transaction records, not a replacement for the primary stream view.
+
 The current username is client-provided, unvalidated display attribution. It must not be treated as proof of identity or used for authorization.
 
 ### Bundles and topics

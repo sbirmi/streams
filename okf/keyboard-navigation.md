@@ -62,6 +62,10 @@ The modal must trap focus, support `Escape`, and return focus to the original st
 
 The stream row’s accessible delete button is the pointer equivalent of `d s` and uses the same confirmation and conflict handling.
 
+## Transaction undo and redo
+
+The proposed transaction shortcuts are `tu` (undo the latest active shared transaction) and `tr` (redo the latest transaction on the active redo path). A lone `t` opens pending-command feedback and does not mutate data. Undo/redo must show the original transaction actor/time and the current undo/redo actor/time, preserve the transaction’s atomicity, and leave the command pending or show a conflict if revision checks fail. The future transaction history page is not required for the first shortcut implementation.
+
 ## Creating and moving streams
 
 The product uses explicit two-key commands for inserting a stream above, below, or beneath the focused stream:

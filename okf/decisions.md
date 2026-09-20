@@ -70,3 +70,9 @@ Favorites are a boolean property on streams and are shared workspace state under
 - **Status:** accepted for initial implementation
 - **Decision:** Use one revision-checked `status` field with `open`, `resolved`, and `no_action` values. Resolved and no-action items share muted/crossed-out presentation; the status icon distinguishes them with a check mark versus a muted open circle. Duplicate context remains in descriptions or comments.
 - **Reason:** The initial workflow needs to distinguish completed work from an intentional decision not to act without introducing separate lifecycle and resolution fields. More outcomes can be added if real usage requires them.
+
+## D011 — Shared transaction history with linear undo/redo
+
+- **Status:** accepted for initial transaction implementation
+- **Decision:** Group each user-visible mutation, including atomic bulk operations, into a durable transaction envelope above object-level history. Support shared latest-transaction undo and redo using revision-checked semantic inverses. Undo and redo are recorded as new transactions. A new ordinary transaction after undo abandons the redo path for normal user navigation, while retaining the abandoned branch for backend inspection and a future searchable `/transactions` page. Use `tu` and `tr` as the proposed multi-key commands; a lone `t` only opens command feedback.
+- **Reason:** A transaction is the correct unit for bulk move/delete/status actions and makes shared undo understandable without pretending that history was erased. Revision checks prevent undo from clobbering intervening work, while retained abandoned branches preserve debugging context without requiring a full branching-history UI in the first cut.

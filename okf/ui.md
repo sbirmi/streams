@@ -62,6 +62,7 @@ The first screen under review is intentionally narrow in scope:
 - The URL carries shareable navigation state only. Personal presentation state such as expansion/collapse, local focus restoration, and comment-rail position is persisted client-side per bundle/root context, independently of sort mode, with explicit URL parameters taking precedence. Restoring a focused stream or comment expands only the ancestor chain required to make it visible.
 - A visible Copy link action copies the canonical current rooted-view URL. Browser history updates preserve the URL as navigation state without requiring a full page reload.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
+- Transaction undo/redo should show the original transaction actor and timestamp as well as the actor and time of the undo/redo action. The indicator should link to the future `/transactions` history page or transaction detail. A future transactions page is a separate, searchable, read-only destination and may expose retained abandoned branches.
 
 ## Primary hierarchy
 

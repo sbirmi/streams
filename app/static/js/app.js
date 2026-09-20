@@ -10,7 +10,7 @@
     urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus");
   }
   readUrlState();
-  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode };
+  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -20,6 +20,8 @@
   const shortcutsDialog = document.querySelector("#shortcuts-dialog");
   const shortcutList = document.querySelector("#shortcut-list");
   const commandHud = document.querySelector("#command-hud");
+  const transactionStatus = document.querySelector("#transaction-status");
+  const transactionStatusCopy = document.querySelector(".transaction-status-copy");
 
   function presentationKey() { return `streams:p:${state.bundle?.id || "bundle"}:${currentRootId() || "index"}`; }
   function readPresentation() { try { return JSON.parse(localStorage.getItem(presentationKey()) || "{}"); } catch (_) { return {}; } }
@@ -217,7 +219,7 @@
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
   function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
-  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed" };
+  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction" };
   function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
   const namedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Backspace", "Escape", "PageUp", "PageDown", "Home", "End", "Tab"]);
   const modifierOnlyKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
@@ -355,6 +357,60 @@
       document.querySelector("#delete-error").textContent = error.status === 409 ? "This item changed elsewhere. Close this dialog, refresh, and review the current item before deleting." : error.message;
     }
   }
+  function transactionActor(transaction) { return transaction?.actor || transaction?.created_by || transaction?.username || "unknown actor"; }
+  function transactionTime(transaction) { return transaction?.created_at || transaction?.timestamp || transaction?.time || null; }
+  function transactionSummary(transaction) { return transaction?.summary || transaction?.description || transaction?.action_label || transaction?.action || "transaction"; }
+  function showTransactionFeedback(body, operation) {
+    const original = body?.original_transaction || body?.transaction?.original_transaction || body?.transaction || body?.transaction_before || {};
+    const performed = body?.undo_transaction || body?.redo_transaction || body?.result_transaction || body?.operation || body?.undo || body?.redo || { actor: actor() };
+    const originalWhen = transactionTime(original);
+    const originalLabel = `${transactionActor(original)}${originalWhen ? ` · ${displayDate(originalWhen)}` : ""}`;
+    const resultWhen = transactionTime(performed);
+    const resultLabel = `${transactionActor(performed)}${resultWhen ? ` · ${displayDate(resultWhen)}` : ""}`;
+    transactionStatusCopy.textContent = `${operation === "undo" ? "Undid" : "Redid"} ${transactionSummary(original)} · original: ${originalLabel} · by: ${resultLabel}`;
+    transactionStatus.hidden = false;
+  }
+  function transactionFocusFrom(body) {
+    const focus = body?.focus || body?.navigation || body?.transaction?.focus || {};
+    const targetId = focus.target_id || focus.stream_id || focus.comment_stream_id || body?.focus_stream_id || null;
+    const commentId = focus.comment_id || body?.focus_comment_id || null;
+    const rootId = focus.root_id || body?.root_id || null;
+    return targetId || commentId || rootId ? { targetId, commentId, rootId } : null;
+  }
+  function restoreTransactionFocus() {
+    const focus = state.transactionFocus;
+    state.transactionFocus = null;
+    if (!focus || state.dashboard) return;
+    if (focus.rootId && selectedStreamById(focus.rootId)) state.rootPath = [focus.rootId];
+    const target = focus.targetId && selectedStreamById(focus.targetId);
+    const commentStream = focus.commentId && state.streams.find((stream) => (stream.comments || []).some((comment) => comment.id === focus.commentId));
+    const stream = target || commentStream;
+    if (!stream) return;
+    state.selected = stream.id;
+    state.focusColumn = focus.commentId ? "comments" : "stream";
+    state.commentId = focus.commentId || null;
+    state.commentIndex = focus.commentId ? Math.max(0, (stream.comments || []).findIndex((comment) => comment.id === focus.commentId)) : 0;
+    ensureFocusedTargetVisible();
+    render();
+    savePresentationAndUrl();
+    const targetElement = focus.commentId ? document.querySelector(`[data-id="${CSS.escape(stream.id)}"] [data-comment-index="${state.commentIndex}"]`) : document.querySelector(`[data-id="${CSS.escape(stream.id)}"]`);
+    targetElement?.focus();
+    targetElement?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  async function runTransaction(operation) {
+    try {
+      const body = await api(`/api/transactions/${operation}`, { method: "POST", body: JSON.stringify({ actor: actor() }) });
+      state.transactionFocus = transactionFocusFrom(body);
+      await loadStreams();
+      restoreTransactionFocus();
+      showTransactionFeedback(body, operation);
+      document.querySelector("#status-message").textContent = `${operation === "undo" ? "Undo" : "Redo"} complete`;
+    } catch (error) {
+      const message = error.status === 409 ? `${operation === "undo" ? "Undo" : "Redo"} blocked: the affected data changed elsewhere.` : `${operation === "undo" ? "Undo" : "Redo"} failed: ${error.message}`;
+      document.querySelector("#status-message").textContent = message;
+      showCommandHud(message);
+    }
+  }
   async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; render(); return; } const previousExpanded = Object.fromEntries(state.streams.map((stream) => [stream.id, stream.expanded])); const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: previousExpanded[stream.id] ?? (stream.expanded !== false) })); if (state.dashboard) { const focused = urlState.focus?.startsWith("stream:") ? urlState.focus.slice(7) : null; state.selected = focused && favoriteStreams().some((stream) => stream.id === focused) ? focused : favoriteStreams()[0]?.id || null; updateRootLabel(); render(); return; } state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; if (!state.presentationLoaded) { applyUrlState(); applyPresentation(); } updateRootLabel(); render(); savePresentationAndUrl(); }
   async function setFavorite(id, favorite) { const stream = selectedStreamById(id); if (!stream) return; try { const body = await api(`/api/streams/${id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: stream.revision, changes: { favorite } }) }); const updated = body.stream || body; Object.assign(stream, updated); render(); document.querySelector("#status-message").textContent = favorite ? "Added to favorites" : "Removed from favorites"; } catch (error) { document.querySelector("#status-message").textContent = error.status === 409 ? "This stream changed elsewhere. Refresh before changing its favorite status." : error.message; } }
   async function copyLink() { const link = new URL(window.location.href).toString(); try { await navigator.clipboard.writeText(link); } catch (_) { const input = document.createElement("input"); input.value = link; document.body.appendChild(input); input.select(); document.execCommand("copy"); input.remove(); } const button = document.querySelector('[data-action="copy-link"]'); const original = button.textContent; button.textContent = "Copied"; setTimeout(() => { button.textContent = original; }, 1400); }
@@ -386,6 +442,8 @@
     else if (action === "mark_open") setStatuses("open");
     else if (action === "mark_resolved") setStatuses("resolved");
     else if (action === "mark_no_action") setStatuses("no_action");
+    else if (action === "transaction_undo") runTransaction("undo");
+    else if (action === "transaction_redo") runTransaction("redo");
     else if (action === "edit") { if (state.focusColumn === "comments") openCommentEditor(selectedComment()); else openEditor(selectedStream()); }
     else if (action === "add_comment") openComment();
     else if (action === "open_help") shortcutsDialog.showModal();

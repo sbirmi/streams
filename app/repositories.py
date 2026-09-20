@@ -117,6 +117,7 @@ class Repository:
         bundle_id = bundle_id or new_id()
         timestamp = now()
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, creator, "create_bundle", f"Created bundle {name}")
             connection.execute(
                 "INSERT INTO bundles(id, name, description, creator, created_at, updated_at, revision) "
                 "VALUES (?, ?, ?, ?, ?, ?, 1)",
@@ -163,6 +164,7 @@ class Repository:
         deadline = _normalize_deadline(deadline)
         tags = _normalize_tags(tags)
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, creator, "create_stream", f"Created stream {summary}")
             self._require_bundle(connection, bundle_id)
             if root_stream_id:
                 root = self._require_stream(connection, root_stream_id, bundle_id=bundle_id)
@@ -236,6 +238,7 @@ class Repository:
         if "status" in changes:
             changes["status"] = _normalize_status(changes["status"])
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "update_stream", "Updated stream")
             current_row = self._require_stream(connection, stream_id)
             current = _decode(current_row)
             self._check_revision("stream", stream_id, current, expected_revision)
@@ -273,6 +276,7 @@ class Repository:
             raise ValueError("stream_ids must be unique")
         status = _normalize_status(status)
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "bulk_status", f"Changed status on {len(stream_ids)} streams")
             rows = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
             current_values = {row["id"]: _decode(row) for row in rows}
             for stream_id in stream_ids:
@@ -302,6 +306,7 @@ class Repository:
         """Delete one stream, promote its children to roots, and retain audit history."""
 
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "delete_stream", "Deleted stream")
             current = _decode(self._require_stream(connection, stream_id))
             self._check_revision("stream", stream_id, current, expected_revision)
             child_rows = connection.execute(
@@ -372,6 +377,7 @@ class Repository:
         if placement not in {"before", "after", "child"}:
             raise ValueError("placement must be before, after, or child")
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "move_streams", f"Moved {len(stream_ids)} streams")
             rows = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
             bundle_id = rows[0]["bundle_id"]
             if any(row["bundle_id"] != bundle_id for row in rows):
@@ -462,6 +468,7 @@ class Repository:
         if len(set(stream_ids)) != len(stream_ids):
             raise ValueError("stream_ids must be unique")
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "delete_streams", f"Deleted {len(stream_ids)} streams")
             roots = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
             bundle_id = roots[0]["bundle_id"]
             if any(row["bundle_id"] != bundle_id for row in roots):
@@ -516,6 +523,7 @@ class Repository:
         comment_id = comment_id or new_id()
         timestamp = now()
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, creator, "create_comment", "Added comment")
             self._require_stream(connection, stream_id)
             connection.execute(
                 "INSERT INTO comments(id, stream_id, body, creator, created_at, updated_at, sticky_note, revision) "
@@ -548,6 +556,7 @@ class Repository:
     def update_comment(self, comment_id: str, expected_revision: int, actor: str, body: str,
                        sticky_note: bool | None = None) -> dict[str, Any]:
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "update_comment", "Updated comment")
             current_row = self._require_comment(connection, comment_id)
             current = dict(current_row)
             self._check_revision("comment", comment_id, current, expected_revision)
@@ -569,6 +578,7 @@ class Repository:
 
     def delete_comment(self, comment_id: str, expected_revision: int, actor: str) -> dict[str, Any]:
         with self.database.transaction() as connection:
+            self._begin_transaction(connection, actor, "delete_comment", "Deleted comment")
             current = dict(self._require_comment(connection, comment_id))
             self._check_revision("comment", comment_id, current, expected_revision)
             result = connection.execute(
@@ -579,6 +589,88 @@ class Repository:
                 raise RevisionConflict("comment", comment_id, latest)
             self._record_history(connection, "comment", comment_id, actor, current, None)
             return current
+
+    def list_transactions(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Return durable transaction envelopes, newest first."""
+        if not isinstance(limit, int) or limit < 1:
+            raise ValueError("limit must be positive")
+        with self.database.read() as connection:
+            rows = connection.execute(
+                "SELECT * FROM transactions ORDER BY rowid DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_transaction(self, transaction_id: str) -> dict[str, Any]:
+        with self.database.read() as connection:
+            row = connection.execute(
+                "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
+            ).fetchone()
+        if row is None:
+            raise NotFound(f"transaction {transaction_id}")
+        return dict(row)
+
+    def undo_latest(self, actor: str, transaction_id: str | None = None) -> dict[str, Any]:
+        return self._reverse_latest(actor, redo=False, transaction_id=transaction_id)
+
+    def redo_latest(self, actor: str, transaction_id: str | None = None) -> dict[str, Any]:
+        return self._reverse_latest(actor, redo=True, transaction_id=transaction_id)
+
+    def _reverse_latest(self, actor: str, redo: bool, transaction_id: str | None = None) -> dict[str, Any]:
+        with self.database.transaction() as connection:
+            if redo:
+                row = connection.execute(
+                    "SELECT target.* FROM transactions AS undo "
+                    "JOIN transactions AS target ON target.id = undo.target_transaction_id "
+                    "WHERE undo.kind = 'undo' AND target.kind = 'mutation' AND target.state = 'undone' "
+                    "AND (? IS NULL OR target.id = ?) ORDER BY undo.rowid DESC LIMIT 1",
+                    (transaction_id, transaction_id),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    "SELECT * FROM transactions WHERE kind = 'mutation' AND state = 'active' "
+                    "AND (? IS NULL OR id = ?) ORDER BY rowid DESC LIMIT 1",
+                    (transaction_id, transaction_id),
+                ).fetchone()
+            if row is None:
+                raise ValueError("nothing to redo" if redo else "nothing to undo")
+            target = dict(row)
+            operation = self._begin_transaction(
+                connection, actor, "redo" if redo else "undo",
+                ("Redid " if redo else "Undid ") + target["summary"],
+                kind="redo" if redo else "undo", target_transaction_id=target["id"],
+            )
+            entries = connection.execute(
+                "SELECT * FROM history WHERE transaction_id = ? ORDER BY sequence",
+                (target["id"],),
+            ).fetchall()
+            if not entries:
+                raise ValueError("transaction has no history")
+            decoded = []
+            for entry in entries:
+                item = dict(entry)
+                item["before_value"] = json.loads(item["before_value"]) if item["before_value"] else None
+                item["after_value"] = json.loads(item["after_value"]) if item["after_value"] else None
+                expected = item["before_value"] if redo else item["after_value"]
+                current = self._current_snapshot(connection, item["object_type"], item["object_id"])
+                if not self._snapshot_matches(current, expected):
+                    raise RevisionConflict(item["object_type"], item["object_id"], current or {})
+                decoded.append((item, current, item["after_value"] if redo else item["before_value"]))
+
+            # Restore parents before children; remove children/comments before parents.
+            ordered = sorted(decoded, key=lambda value: 0 if value[2] is not None else 1)
+            for item, current, desired in ordered:
+                self._apply_snapshot(connection, item["object_type"], item["object_id"], current, desired)
+                self._record_history(connection, item["object_type"], item["object_id"], actor, current, desired)
+            connection.execute(
+                "UPDATE transactions SET state = ? WHERE id = ?",
+                ("active" if redo else "undone", target["id"]),
+            )
+            result = self._transaction(connection, operation)
+            result["original_transaction"] = target
+            result["focus"] = {"stream_id": next(
+                (item["object_id"] for item, _, _ in decoded if item["object_type"] == "stream"), None
+            )}
+            return result
 
     def list_history(self, object_type: str, object_id: str) -> list[dict[str, Any]]:
         with self.database.read() as connection:
@@ -594,6 +686,66 @@ class Repository:
             item["after_value"] = json.loads(item["after_value"]) if item["after_value"] else None
             result.append(item)
         return result
+
+    @staticmethod
+    def _begin_transaction(connection: Any, actor: str, action_type: str, summary: str,
+                           kind: str = "mutation", target_transaction_id: str | None = None) -> str:
+        transaction_id = new_id()
+        if kind == "mutation":
+            connection.execute("UPDATE transactions SET state = 'abandoned' WHERE kind = 'mutation' AND state = 'undone'")
+        connection.execute(
+            "INSERT INTO transactions(id, actor, created_at, action_type, summary, kind, state, target_transaction_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'active', ?)",
+            (transaction_id, actor, now(), action_type, summary, kind, target_transaction_id),
+        )
+        connection.execute("CREATE TEMP TABLE IF NOT EXISTS current_transaction (id TEXT NOT NULL)")
+        connection.execute("DELETE FROM current_transaction")
+        connection.execute("INSERT INTO current_transaction(id) VALUES (?)", (transaction_id,))
+        return transaction_id
+
+    @staticmethod
+    def _transaction(connection: Any, transaction_id: str) -> dict[str, Any]:
+        return dict(connection.execute("SELECT * FROM transactions WHERE id = ?", (transaction_id,)).fetchone())
+
+    @staticmethod
+    def _current_snapshot(connection: Any, object_type: str, object_id: str) -> dict[str, Any] | None:
+        table = "streams" if object_type == "stream" else "comments"
+        row = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (object_id,)).fetchone()
+        if row is None:
+            return None
+        return _decode(row) if object_type == "stream" else dict(row)
+
+    @staticmethod
+    def _snapshot_matches(current: dict[str, Any] | None, expected: dict[str, Any] | None) -> bool:
+        if current is None or expected is None:
+            return current is expected
+        ignored = {"revision", "updated_at"}
+        return {k: v for k, v in current.items() if k not in ignored} == {k: v for k, v in expected.items() if k not in ignored}
+
+    @staticmethod
+    def _apply_snapshot(connection: Any, object_type: str, object_id: str,
+                        current: dict[str, Any] | None, desired: dict[str, Any] | None) -> None:
+        table = "streams" if object_type == "stream" else "comments"
+        if desired is None:
+            if current is not None:
+                connection.execute(f"DELETE FROM {table} WHERE id = ?", (object_id,))
+            return
+        revision = (current or {}).get("revision", desired.get("revision", 1)) + 1
+        values = dict(desired)
+        values["revision"] = revision
+        values["updated_at"] = now()
+        if object_type == "stream":
+            columns = ["bundle_id", "parent_stream_id", "summary", "description", "owners", "creator", "priority", "snooze_until", "deadline", "created_at", "updated_at", "closed_at", "close_status", "tags", "revision", "order_key", "status"]
+            if current is None:
+                connection.execute("INSERT INTO streams(id, " + ",".join(columns) + ") VALUES (" + ",".join("?" for _ in ["id"] + columns) + ")", tuple([object_id] + [_json(values[c]) if c in {"owners", "tags"} else values.get(c) for c in columns]))
+            else:
+                connection.execute("UPDATE streams SET " + ", ".join(f"{c} = ?" for c in columns) + " WHERE id = ?", tuple([_json(values[c]) if c in {"owners", "tags"} else values.get(c) for c in columns] + [object_id]))
+        else:
+            columns = ["stream_id", "body", "creator", "created_at", "updated_at", "sticky_note", "revision"]
+            if current is None:
+                connection.execute("INSERT INTO comments(id, " + ",".join(columns) + ") VALUES (" + ",".join("?" for _ in ["id"] + columns) + ")", tuple([object_id] + [values.get(c) for c in columns]))
+            else:
+                connection.execute("UPDATE comments SET " + ", ".join(f"{c} = ?" for c in columns) + " WHERE id = ?", tuple([values.get(c) for c in columns] + [object_id]))
 
     @staticmethod
     def _require_bundle(connection: Any, bundle_id: str) -> Any:
@@ -689,7 +841,7 @@ class Repository:
             if (before or {}).get(field) != (after or {}).get(field)
         )
         connection.execute(
-            "INSERT INTO history(id, object_type, object_id, actor, changed_at, changed_fields, before_value, after_value) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO history(id, object_type, object_id, actor, changed_at, changed_fields, before_value, after_value, transaction_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT id FROM current_transaction LIMIT 1))",
             (new_id(), object_type, object_id, actor, now(), _json(changed_fields), before_json, after_json),
         )
