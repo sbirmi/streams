@@ -166,6 +166,18 @@ def register_routes(app: Flask) -> None:
             stream_id, expected_revision, actor(data)
         ))
 
+    @app.post("/api/streams/delete-block")
+    def delete_stream_block() -> Response:
+        data = payload()
+        stream_ids = data.get("stream_ids")
+        revisions = data.get("revisions")
+        if not isinstance(stream_ids, list) or not all(isinstance(item, str) for item in stream_ids):
+            raise ValueError("stream_ids must be a list of stream IDs")
+        if not isinstance(revisions, dict):
+            raise ValueError("revisions are required")
+        deleted = repository().delete_streams(stream_ids, revisions, actor(data))
+        return jsonify(deleted_stream_ids=deleted)
+
     @app.get("/api/streams/<stream_id>/comments")
     def list_comments(stream_id: str) -> Response:
         repository().get_stream(stream_id)

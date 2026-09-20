@@ -16,6 +16,7 @@ zoom_enter: Z Enter
 zoom_back: Z Backspace
 delete_stream: ds
 delete_comment: dc
+delete_visual: dv
 insert_before: ip
 insert_after: in
 insert_child: ic

@@ -209,7 +209,7 @@
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
   function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
-  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent" };
+  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent" };
   function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
   const namedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Backspace", "Escape", "PageUp", "PageDown", "Home", "End", "Tab"]);
   const modifierOnlyKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
@@ -278,17 +278,47 @@
     document.querySelector("#delete-message").textContent = type === "stream" ? `Delete “${target.summary}”? Its direct children will become root streams, and its comments will be deleted.` : `Delete this comment by ${target.creator}?`;
     document.querySelector("#delete-error").textContent = "";
     deleteDialog.showModal();
+    document.querySelector("#delete-cancel")?.focus();
+  }
+  function openDeleteVisual() {
+    if (state.selecting || !state.selectionReady || state.selectedIds.length < 1) {
+      showCommandHud("Finish a visual selection with [v] before using [d v]");
+      return;
+    }
+    const targets = state.selectedIds.map((id) => selectedStreamById(id)).filter(Boolean);
+    const all = targets.flatMap((stream) => [stream, ...descendantsOf(stream.id)]);
+    state.deleteTarget = { targets, type: "visual" };
+    document.querySelector("#delete-title").textContent = "Delete selected streams?";
+    document.querySelector("#delete-message").textContent = `Delete ${targets.length} selected stream${targets.length === 1 ? "" : "s"}, ${all.length} stream${all.length === 1 ? "" : "s"} including descendants, and all of their comments? This cannot be undone.`;
+    document.querySelector("#delete-error").textContent = "";
+    deleteDialog.showModal();
+    document.querySelector("#delete-cancel")?.focus();
   }
   async function submitDelete(event) {
     event.preventDefault();
     const deletion = state.deleteTarget;
     if (!deletion) return;
-    const { target, type } = deletion;
+    const { target, targets, type } = deletion;
     try {
-      await api(`/api/${type === "stream" ? "streams" : "comments"}/${target.id}`, { method: "DELETE", body: JSON.stringify({ actor: actor(), revision: target.revision }) });
+      if (type === "visual") {
+        const all = targets.flatMap((stream) => [stream, ...descendantsOf(stream.id)]);
+        const revisions = Object.fromEntries(all.map((stream) => [stream.id, stream.revision]));
+        await api("/api/streams/delete-block", { method: "POST", body: JSON.stringify({ actor: actor(), stream_ids: targets.map((stream) => stream.id), revisions }) });
+      } else {
+        await api(`/api/${type === "stream" ? "streams" : "comments"}/${target.id}`, { method: "DELETE", body: JSON.stringify({ actor: actor(), revision: target.revision }) });
+      }
       deleteDialog.close();
       state.deleteTarget = null;
-      if (type === "stream") {
+      if (type === "visual") {
+        const parent = targets[0]?.parent_stream_id;
+        state.rootPath = state.rootPath.filter((id) => !targets.some((stream) => stream.id === id));
+        state.selected = parent || null;
+        state.selectedIds = [];
+        state.selectionReady = false;
+        state.selecting = false;
+        state.focusColumn = "stream";
+        state.commentIndex = 0;
+      } else if (type === "stream") {
         const parent = target.parent_stream_id;
         state.rootPath = state.rootPath.filter((id) => id !== target.id);
         state.selected = parent || null;
@@ -299,7 +329,7 @@
         state.commentIndex = 0;
       }
       await loadStreams();
-      document.querySelector("#status-message").textContent = `${type === "stream" ? "Stream" : "Comment"} deleted`;
+      document.querySelector("#status-message").textContent = type === "visual" ? "Selected streams deleted" : `${type === "stream" ? "Stream" : "Comment"} deleted`;
     } catch (error) {
       document.querySelector("#delete-error").textContent = error.status === 409 ? "This item changed elsewhere. Close this dialog, refresh, and review the current item before deleting." : error.message;
     }
@@ -339,6 +369,7 @@
     else if (action === "zoom_back") popRoot();
     else if (action === "delete_stream") openDelete(selectedStream(), "stream");
     else if (action === "delete_comment") openDelete(selectedComment(), "comment");
+    else if (action === "delete_visual") openDeleteVisual();
     else if (action.startsWith("fold_")) fold(action);
     else if (action.startsWith("insert_")) {
       const placement = insertionPlacement(action);

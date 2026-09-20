@@ -405,6 +405,63 @@ class Repository:
                     updated.append(after)
             return updated
 
+    def delete_streams(self, stream_ids: list[str], revisions: dict[str, int], actor: str) -> list[str]:
+        """Delete selected sibling roots and their complete subtrees atomically."""
+
+        if not stream_ids:
+            raise ValueError("stream_ids must not be empty")
+        if len(set(stream_ids)) != len(stream_ids):
+            raise ValueError("stream_ids must be unique")
+        with self.database.transaction() as connection:
+            roots = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
+            bundle_id = roots[0]["bundle_id"]
+            if any(row["bundle_id"] != bundle_id for row in roots):
+                raise ValueError("deleted streams must belong to one bundle")
+            parent_ids = {row["parent_stream_id"] for row in roots}
+            if len(parent_ids) != 1:
+                raise ValueError("deleted streams must be siblings")
+            sibling_rows = connection.execute(
+                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS ? "
+                "ORDER BY order_key, created_at, id", (bundle_id, roots[0]["parent_stream_id"])
+            ).fetchall()
+            sibling_ids = [row["id"] for row in sibling_rows]
+            indexes = sorted(sibling_ids.index(stream_id) for stream_id in stream_ids)
+            if indexes != list(range(indexes[0], indexes[-1] + 1)):
+                raise ValueError("deleted streams must be contiguous siblings")
+
+            subtree_ids: list[str] = []
+            def collect(stream_id: str) -> None:
+                subtree_ids.append(stream_id)
+                children = connection.execute(
+                    "SELECT id FROM streams WHERE parent_stream_id = ? ORDER BY order_key, created_at, id",
+                    (stream_id,),
+                ).fetchall()
+                for child in children:
+                    collect(child["id"])
+
+            for root in roots:
+                collect(root["id"])
+            snapshots = {stream_id: _decode(self._require_stream(connection, stream_id)) for stream_id in subtree_ids}
+            for stream_id in subtree_ids:
+                expected = revisions.get(stream_id)
+                if not isinstance(expected, int):
+                    raise ValueError("a revision is required for every stream in the selected subtrees")
+                self._check_revision("stream", stream_id, snapshots[stream_id], expected)
+            comment_rows = connection.execute(
+                "SELECT * FROM comments WHERE stream_id IN ({}) ORDER BY created_at, id".format(
+                    ",".join("?" for _ in subtree_ids)
+                ), subtree_ids,
+            ).fetchall()
+            for row in comment_rows:
+                self._record_history(connection, "comment", row["id"], actor, dict(row), None)
+            for stream_id in reversed(subtree_ids):
+                connection.execute("DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, revisions[stream_id]))
+            remaining = [stream_id for stream_id in sibling_ids if stream_id not in stream_ids]
+            self._assign_order_keys(connection, remaining)
+            for stream_id in reversed(subtree_ids):
+                self._record_history(connection, "stream", stream_id, actor, snapshots[stream_id], None)
+            return subtree_ids
+
     def add_comment(self, stream_id: str, body: str, creator: str, comment_id: str | None = None,
                     sticky_note: bool = False) -> dict[str, Any]:
         comment_id = comment_id or new_id()

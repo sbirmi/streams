@@ -245,6 +245,41 @@ class DatabaseTestCase(unittest.TestCase):
                 [parent["id"]], {parent["id"]: parent["revision"]}, child["id"], "child", "bob"
             )
 
+    def test_delete_streams_deletes_selected_subtrees_and_comments_atomically(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        before = self.repository.create_stream(bundle["id"], "Before", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        after = self.repository.create_stream(bundle["id"], "After", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=first["id"])
+        comment = self.repository.add_comment(child["id"], "Remove this too", "alice")
+        revisions = {stream_id: self.repository.get_stream(stream_id)["revision"] for stream_id in [first["id"], second["id"], child["id"]]}
+
+        deleted = self.repository.delete_streams([first["id"], second["id"]], revisions, "bob")
+
+        self.assertEqual(set(deleted), {first["id"], second["id"], child["id"]})
+        self.assertEqual([stream["id"] for stream in self.repository.list_streams(bundle["id"])], [before["id"], after["id"]])
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(child["id"])
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        self.assertIsNone(self.repository.list_history("stream", child["id"])[-1]["after_value"])
+
+    def test_delete_streams_rejects_stale_descendant_without_partial_delete(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=first["id"])
+        self.repository.update_stream(child["id"], child["revision"], "bob", {"summary": "Changed"})
+        with self.assertRaises(RevisionConflict):
+            self.repository.delete_streams(
+                [first["id"], second["id"]],
+                {first["id"]: first["revision"], second["id"]: second["revision"], child["id"]: child["revision"]},
+                "alice",
+            )
+        self.assertEqual(self.repository.get_stream(first["id"])["summary"], "First")
+        self.assertEqual(self.repository.get_stream(second["id"])["summary"], "Second")
+
     def test_order_key_is_server_controlled(self) -> None:
         bundle = self.repository.create_bundle("Index", "alice")
         stream = self.repository.create_stream(bundle["id"], "First", "alice")

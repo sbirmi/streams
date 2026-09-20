@@ -193,6 +193,16 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(shortcuts["move_previous_sibling"], ["("])
         self.assertEqual(shortcuts["move_next_sibling"], [")"])
 
+    def test_delete_block_api_deletes_selected_subtree(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        first = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "First", "actor": "alice"}).json["stream"]
+        child = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "Child", "actor": "alice", "parent_stream_id": first["id"]}).json["stream"]
+        response = self.client.post("/api/streams/delete-block", json={
+            "stream_ids": [first["id"]], "revisions": {first["id"]: first["revision"], child["id"]: child["revision"]}, "actor": "bob",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(set(response.json["deleted_stream_ids"]), {first["id"], child["id"]})
+
     def test_shortcut_config_requires_every_action_and_rejects_legacy_map(self) -> None:
         path = Path(self.tempdir.name) / "shortcuts.yaml"
         path.write_text("insert_before: i\n", encoding="utf-8")
@@ -208,6 +218,7 @@ class ApplicationShellTestCase(unittest.TestCase):
             "edit: e", "add_comment: a", "open_help: ?", "cancel_command: Escape",
             "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds",
             "delete_comment: dc", "insert_before: ip", "insert_after: in", "insert_child: ic",
+            "delete_visual: dv",
             "fold_open: zo", "fold_open_all: zO", "fold_close: zc", "fold_close_all: zC",
             "fold_toggle: za", "start_move: m", "start_selection: v", "move_before: p",
             "move_after: n", "move_child: c", "move_promote: u",
