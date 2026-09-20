@@ -54,3 +54,7 @@ Streams preserve hierarchy order with a server-controlled integer `order_key` fo
 ## Shareable rooted-view URLs
 
 Shareable navigation state uses stable stream/comment identifiers in query parameters: `root`, `view`, and typed `focus`. The index is represented by omitting `root`. Client-local presentation state, including expansion and scroll preferences, is stored separately per bundle/root context, independent of sort mode, so different users can retain their own layout without making links noisy or user-specific. Restoring an explicit or saved focus expands only the target’s required ancestor chain.
+
+## Shared favorites dashboard
+
+Favorites are a boolean property on streams and are shared workspace state under the trusted-network, no-account model. They are presented at `/dashboard` as a flat dashboard rather than as a tree ordering mode. Open favorites sort before closed/resolved favorites, with newest `updated_at` first within each group; rows retain hierarchy breadcrumbs for navigation back to rooted views.

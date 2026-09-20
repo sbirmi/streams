@@ -81,6 +81,7 @@ The working domain vocabulary is **topic**, **stream**, and **comment**. “Issu
 - creation, last-update, and close timestamps
 - close status such as resolved, no-action-needed, or duplicate
 - optional parent stream identifier
+- favorite flag, shared across the workspace
 - tags/labels
 - revision/version for optimistic concurrency
 - ordered comments/updates
@@ -118,7 +119,9 @@ The initial schema contains `bundles`, `streams`, `comments`, `history`, and `sc
 
 Use resource-oriented endpoints with explicit version or revision preconditions on mutating stream/comment operations. A write that supplies an old revision should return a conflict response and the current representation, rather than overwriting it. Deep links should use stable identifiers and encode rooted-view, focus, filter, and view/sort state in a bookmarkable form. Shareable URL state is separate from client-local presentation preferences such as expansion and scroll position. Client-local hierarchy state is keyed by bundle and root, not sort mode; restoring a target expands only the minimum ancestor chain needed to reveal it.
 
-The initial JSON API exposes bundle listing/creation, bundle stream listing/creation, stream read/update/delete, and comment listing/creation/update/delete under `/api/`. Stream reads and bundle stream listings include comments for the first UI slice. Mutating stream/comment requests include an `actor` display name; stream updates and deletes include a `revision` precondition. Stream owners and tags are stored as ordered lists of trimmed, non-empty strings, and deadlines use the date-only `YYYY-MM-DD` representation (empty values become null). The modal converts comma/whitespace-separated tag input to that list before sending it. A stream delete promotes direct children to roots and deletes its comments. Delete operations retain before snapshots in history and return HTTP 409 with the current object when their revision is stale.
+The initial JSON API exposes bundle listing/creation, bundle stream listing/creation, stream read/update/delete, and comment listing/creation/update/delete under `/api/`. Stream reads and bundle stream listings include comments for the first UI slice. Mutating stream/comment requests include an `actor` display name; stream updates and deletes include a `revision` precondition. Stream owners and tags are stored as ordered lists of trimmed, non-empty strings, and deadlines use the date-only `YYYY-MM-DD` representation (empty values become null). The modal converts comma/whitespace-separated tag input to that list before sending it. Favorite changes are revision-checked stream updates and are shared workspace state. A stream delete promotes direct children to roots and deletes its comments. Delete operations retain before snapshots in history and return HTTP 409 with the current object when its revision is stale.
+
+The `/dashboard` page is a separate flat favorite-stream destination, not a tree view option. It reuses the application header and view bar, shows a favorite count, and orders favorites with open streams first, then closed/resolved streams, newest `updated_at` first within each group. Rows include current hierarchy breadcrumbs and links back to rooted hierarchy views.
 
 Rooted-view state currently lives in the browser and is not part of the authenticated/server session model. Create requests may include `root_stream_id`; when present, the repository rejects sibling or child insertion anchors outside that rooted subtree and rejects siblings of the root itself. Direct API callers that omit this optional UI context can still perform ordinary bundle-level insertion, consistent with the trusted-network product assumption; this is a view-safety guard, not an authorization boundary.
 

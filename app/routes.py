@@ -65,6 +65,10 @@ def register_routes(app: Flask) -> None:
     def index() -> str:
         return render_template("index.html", app_name=current_app.config["APP_NAME"])
 
+    @app.get("/dashboard")
+    def dashboard() -> str:
+        return render_template("index.html", app_name=current_app.config["APP_NAME"])
+
     @app.get("/healthz")
     def healthz() -> Response:
         return jsonify(status="ok")

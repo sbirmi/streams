@@ -79,11 +79,19 @@ def _normalize_tags(value: Any) -> list[str]:
     return tags
 
 
+def _normalize_favorite(value: Any) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("favorite must be a boolean")
+    return value
+
+
 def _decode(row: Any) -> dict[str, Any]:
     result = dict(row)
     for field in ("owners", "tags"):
         if field in result:
             result[field] = json.loads(result[field])
+    if "favorite" in result:
+        result["favorite"] = bool(result["favorite"])
     return result
 
 
@@ -200,7 +208,7 @@ class Repository:
         changes: dict[str, Any],
     ) -> dict[str, Any]:
         allowed = {"summary", "description", "owners", "priority", "snooze_until", "deadline",
-                   "closed_at", "close_status", "tags", "parent_stream_id"}
+                   "closed_at", "close_status", "tags", "parent_stream_id", "favorite"}
         unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"unsupported stream fields: {sorted(unknown)}")
@@ -211,6 +219,8 @@ class Repository:
             changes["deadline"] = _normalize_deadline(changes["deadline"])
         if "tags" in changes:
             changes["tags"] = _normalize_tags(changes["tags"])
+        if "favorite" in changes:
+            changes["favorite"] = _normalize_favorite(changes["favorite"])
         with self.database.transaction() as connection:
             current_row = self._require_stream(connection, stream_id)
             current = _decode(current_row)

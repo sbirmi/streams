@@ -32,6 +32,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R23 — Reordering usability:** After insertion or movement, the UI preserves context and makes the resulting position clear.
 - **R27 — Safe deletion:** A user can confirm deletion of a focused stream or comment through a two-key command, with revision-checked server-side deletion and visible conflicts for stale data.
 - **R28 — Comment editing:** A user can edit a focused comment by keyboard or pointer, with revision-checked saving and a visible conflict when the comment changed elsewhere.
+- **R29 — Shared favorites dashboard:** A user can mark any stream as a favorite and view all favorite streams on a separate flat dashboard, with open streams first, closed/resolved streams afterward, and each group ordered by most recent update. Favorite rows show hierarchy breadcrumbs and can open the corresponding rooted hierarchy view.
 
 ## Non-functional
 

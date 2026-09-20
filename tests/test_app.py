@@ -32,6 +32,12 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(response.json, {"status": "ok"})
         self.assertTrue(response.headers["X-Request-ID"])
 
+    def test_dashboard_route_renders_application_shell(self) -> None:
+        response = self.client.get("/dashboard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"data-action=\"dashboard\"", response.data)
+
     def test_stream_api_create_read_and_conflict(self) -> None:
         bundle_response = self.client.post(
             "/api/bundles", json={"name": "Todos", "actor": "alice"}
@@ -45,6 +51,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         )
         self.assertEqual(stream_response.status_code, 201)
         stream = stream_response.json["stream"]
+        self.assertIs(stream["favorite"], False)
 
         update_response = self.client.patch(
             f"/api/streams/{stream['id']}",
@@ -58,6 +65,27 @@ class ApplicationShellTestCase(unittest.TestCase):
         )
         self.assertEqual(conflict_response.status_code, 409)
         self.assertEqual(conflict_response.json["current"]["summary"], "Ship release")
+
+    def test_stream_api_updates_favorite_with_revision_check(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Prepare release", "actor": "alice"}
+        ).json["stream"]
+
+        updated = self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"revision": stream["revision"], "actor": "alice", "changes": {"favorite": True}},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertIs(updated.json["stream"]["favorite"], True)
+        self.assertEqual(updated.json["stream"]["revision"], 2)
+
+        conflict = self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"revision": stream["revision"], "actor": "bob", "changes": {"favorite": False}},
+        )
+        self.assertEqual(conflict.status_code, 409)
+        self.assertIs(conflict.json["current"]["favorite"], True)
 
     def test_stream_api_persists_owners_and_deadline_on_create_and_update(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]

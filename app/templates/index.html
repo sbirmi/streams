@@ -20,7 +20,7 @@
         </header>
         <section class="viewbar" aria-label="Viewbar controls">
           <label class="search-control"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Filter streams" autocomplete="off"></label>
-          <div class="toolbar-controls"><label class="compact-control"><span class="sr-only">View</span><select id="view-select"><option value="priority">Priority</option><option value="recent">Recently touched</option><option value="manual">Manual order</option><option value="stale">Stale</option></select></label><button class="secondary-button" type="button" data-action="copy-link">Copy link</button><button class="secondary-button" type="button" data-action="add-stream">Add stream</button></div>
+          <div class="toolbar-controls"><label class="compact-control"><span class="sr-only">View</span><select id="view-select"><option value="priority">Priority</option><option value="recent">Recently touched</option><option value="manual">Manual order</option><option value="stale">Stale</option></select></label><span id="dashboard-label" class="dashboard-label" hidden>Favorites</span><button class="secondary-button" type="button" data-action="dashboard">Favorites</button><button class="secondary-button" type="button" data-action="index" hidden>Index</button><button class="secondary-button" type="button" data-action="copy-link">Copy link</button><button class="secondary-button" type="button" data-action="add-stream">Add stream</button></div>
           <div id="toolbar-stats" class="toolbar-stats">Loading streams…</div>
         </section>
       </div>

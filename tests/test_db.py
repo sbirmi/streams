@@ -20,7 +20,29 @@ class DatabaseTestCase(unittest.TestCase):
         with self.database.read() as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 3)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 4)
+
+    def test_stream_favorite_defaults_false_and_updates_with_history(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+
+        self.assertIs(stream["favorite"], False)
+        updated = self.repository.update_stream(
+            stream["id"], stream["revision"], "alice", {"favorite": True}
+        )
+
+        self.assertIs(updated["favorite"], True)
+        self.assertEqual(updated["revision"], 2)
+        self.assertIn("updated_at", updated)
+        history = self.repository.list_history("stream", stream["id"])
+        self.assertEqual(history[-1]["changed_fields"], ["favorite", "revision"])
+
+    def test_stream_favorite_requires_boolean(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+
+        with self.assertRaises(ValueError):
+            self.repository.update_stream(stream["id"], stream["revision"], "alice", {"favorite": 1})
 
     def test_stream_update_records_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
