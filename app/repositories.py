@@ -55,8 +55,9 @@ def _normalize_owners(value: Any) -> list[str]:
 def _normalize_deadline(value: Any) -> str | None:
     if value in (None, ""):
         return None
-    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
-        raise ValueError("deadline must be a date in YYYY-MM-DD format")
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}[-/]\d{2}[-/]\d{2}", value):
+        raise ValueError("deadline must be a date in YYYY-MM-DD or YYYY/MM/DD format")
+    value = value.replace("/", "-")
     try:
         datetime.strptime(value, "%Y-%m-%d")
     except ValueError as error:

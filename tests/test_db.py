@@ -316,6 +316,11 @@ class DatabaseTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repository.create_stream(bundle["id"], "Plan release", "alice", deadline="tomorrow")
 
+    def test_stream_deadline_accepts_slashes_and_stores_canonical_hyphens(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Plan release", "alice", deadline="2026/10/05")
+        self.assertEqual(stream["deadline"], "2026-10-05")
+
 
 if __name__ == "__main__":
     unittest.main()

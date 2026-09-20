@@ -6,6 +6,10 @@ A standalone visual prototype is available in [`prototype/`](../prototype/). It 
 
 The UI should optimize for fast rendering, low interaction cost, and information density. It should feel like a quick shared workbench, not a large project-management dashboard.
 
+Date-only values use `YYYY-MM-DD` throughout the UI. Deadline input accepts both `YYYY-MM-DD` and `YYYY/MM/DD` and stores the hyphenated form. Timestamps shown in compact rows use the same date ordering while retaining time precision, for example `YYYY-MM-DD HH:MM:SSZ`.
+
+Readable stream and comment content must retain ordinary browser text selection and copying. Row-click navigation must not treat the click that follows a text drag as a selection change that rerenders the row and clears the copied text.
+
 The current prototype direction favors a dense, list-like surface: minimal padding, no unnecessary cards, one compact header/control area, and stream rows that resemble a semantic unordered list. The first UI pass includes recent comments in a horizontally scrollable comment rail beside each stream; this placement has proved useful for understanding the surrounding conversation without opening another view. Add-stream and reordering controls are also deferred while the reading/editing surface is being evaluated.
 
 When set, priority is rendered as the first metadata tag (for example, `#P0`) and color-coded like any other tag. Priority may be empty. The summary has no unrelated trailing labels; update time, owners, priority, tags, and deadline live in the metadata line beneath it. Owners are displayed as a compact comma-separated list and deadlines as `due YYYY-MM-DD`; empty values are omitted.

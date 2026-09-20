@@ -28,6 +28,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R19 — Default priority view:** At every hierarchy level, the default view shows open items first, grouped by priority, with closed items optionally included afterward.
 - **R20 — View recipes:** The system supports deadline-first, chronological/most-recently-touched, and stale-open views, each optionally flat or hierarchy-preserving.
 - **R21 — Pointer support:** Core navigation and editing actions work with mouse/pointer controls as well as keyboard shortcuts.
+- **R31 — Mouse text copying:** Ordinary browser text selection and copying must work in stream summaries, descriptions, metadata, comments, and other readable UI content. A selection-release click must not rerender or otherwise clear the selection.
 - **R22 — Insertion and movement:** Users can insert an item before, after, or beneath another item, and move existing items around using keyboard and/or pointer interactions.
 - **R23 — Reordering usability:** After insertion or movement, the UI preserves context and makes the resulting position clear.
 - **R30 — General move operation:** Users can pick up one stream or a contiguous block of sibling streams, navigate to a target, and place the selection before, after, or as a child of that target, or promote it one hierarchy level. The operation is atomic and revision-checked.
