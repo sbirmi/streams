@@ -123,6 +123,8 @@ The initial JSON API exposes bundle listing/creation, bundle stream listing/crea
 
 The `/dashboard` page is a separate flat favorite-stream destination, not a tree view option. It reuses the application header and view bar, shows a favorite count, and orders favorites with open streams first, then closed/resolved streams, newest `updated_at` first within each group. Rows include current hierarchy breadcrumbs and links back to rooted hierarchy views.
 
+The move endpoint accepts a list of stream IDs with their expected revisions, a target stream, and placement (`before`, `after`, or `child`). It can move a contiguous sibling block while preserving its order; the `promote` UI action is represented as placement after the current parent. The repository validates bundle membership, ancestor cycles, rooted-view boundaries, and stale revisions in one transaction. All affected sibling order changes and moved-parent changes receive revisions and history entries; a conflict or validation failure leaves the tree unchanged.
+
 Rooted-view state currently lives in the browser and is not part of the authenticated/server session model. Create requests may include `root_stream_id`; when present, the repository rejects sibling or child insertion anchors outside that rooted subtree and rejects siblings of the root itself. Direct API callers that omit this optional UI context can still perform ordinary bundle-level insertion, consistent with the trusted-network product assumption; this is a view-safety guard, not an authorization boundary.
 
 External-reference recognition and rendering is described in [Integrations](integrations.md). Markdown rendering must use an allowlisted/sanitized renderer.

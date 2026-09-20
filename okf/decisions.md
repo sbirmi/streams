@@ -58,3 +58,9 @@ Shareable navigation state uses stable stream/comment identifiers in query param
 ## Shared favorites dashboard
 
 Favorites are a boolean property on streams and are shared workspace state under the trusted-network, no-account model. They are presented at `/dashboard` as a flat dashboard rather than as a tree ordering mode. Open favorites sort before closed/resolved favorites, with newest `updated_at` first within each group; rows retain hierarchy breadcrumbs for navigation back to rooted views.
+
+## D009 — General move mode
+
+- **Status:** accepted for initial implementation
+- **Decision:** Move one stream or a contiguous sibling block through a single move mode. `m` picks up the selection, navigation chooses a target, and `p`, `n`, or `c` places it before, after, or as a child. `u` promotes it after its current parent. The command HUD describes keys with their actions; separate `>>`/`<<` movement commands are not used.
+- **Reason:** One target-and-placement interaction covers local correction, cross-branch movement, promotion, and blocks without requiring users to memorize a command for each source/target combination. Copying is deferred until subtree/comment/history semantics are needed.

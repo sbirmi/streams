@@ -87,6 +87,22 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(conflict.status_code, 409)
         self.assertIs(conflict.json["current"]["favorite"], True)
 
+    def test_move_api_moves_a_stream_with_revision_check(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        first = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "First", "actor": "alice"}).json["stream"]
+        second = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "Second", "actor": "alice"}).json["stream"]
+        response = self.client.post("/api/streams/move", json={
+            "stream_ids": [second["id"]], "revisions": {second["id"]: second["revision"]},
+            "target_stream_id": first["id"], "placement": "before", "actor": "bob",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["streams"][0]["id"], second["id"])
+        stale = self.client.post("/api/streams/move", json={
+            "stream_ids": [second["id"]], "revisions": {second["id"]: second["revision"]},
+            "target_stream_id": first["id"], "placement": "after", "actor": "bob",
+        })
+        self.assertEqual(stale.status_code, 409)
+
     def test_stream_api_persists_owners_and_deadline_on_create_and_update(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         stream = self.client.post(
@@ -193,7 +209,8 @@ class ApplicationShellTestCase(unittest.TestCase):
             "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds",
             "delete_comment: dc", "insert_before: ip", "insert_after: in", "insert_child: ic",
             "fold_open: zo", "fold_open_all: zO", "fold_close: zc", "fold_close_all: zC",
-            "fold_toggle: za",
+            "fold_toggle: za", "start_move: m", "start_selection: v", "move_before: p",
+            "move_after: n", "move_child: c", "move_promote: u",
         ]) + "\n", encoding="utf-8")
 
         shortcuts = load_shortcuts(str(path))

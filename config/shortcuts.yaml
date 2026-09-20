@@ -24,3 +24,9 @@ fold_open_all: zO
 fold_close: zc
 fold_close_all: zC
 fold_toggle: za
+start_move: m
+start_selection: v
+move_before: p
+move_after: n
+move_child: c
+move_promote: u

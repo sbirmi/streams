@@ -18,6 +18,8 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Implement general stream move mode.** Added atomic revision-checked before/after/child moves, promotion, contiguous sibling blocks, keyboard/pointer entry, and descriptive command HUD hints.
+
 - [x] **Add shareable rooted-view permalinks.** Added URL-driven root/view/stream-or-comment focus state, Copy link support, and per-root/view client presentation persistence.
 - [x] **Remember rooted hierarchy state.** Persisted expansion and focus per bundle/root, independent of sort mode, with minimum ancestor expansion for restored focus targets.
 - [x] **Add shared favorites dashboard.** Added the revision-checked stream favorite property and separate flat `/dashboard` destination with breadcrumbs and rooted-view navigation.

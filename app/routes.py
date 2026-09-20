@@ -128,6 +128,21 @@ def register_routes(app: Flask) -> None:
         stream["comments"] = repository().list_comments(stream_id)
         return jsonify(stream=stream)
 
+    @app.post("/api/streams/move")
+    def move_streams() -> Response:
+        data = payload()
+        stream_ids = data.get("stream_ids")
+        revisions = data.get("revisions")
+        target_stream_id = data.get("target_stream_id")
+        placement = data.get("placement")
+        if not isinstance(stream_ids, list) or not all(isinstance(item, str) for item in stream_ids):
+            raise ValueError("stream_ids must be a list of stream IDs")
+        if not isinstance(revisions, dict) or not isinstance(target_stream_id, str):
+            raise ValueError("revisions and target_stream_id are required")
+        return jsonify(streams=repository().move_streams(
+            stream_ids, revisions, target_stream_id, placement, actor(data), data.get("root_stream_id")
+        ))
+
     @app.patch("/api/streams/<stream_id>")
     def update_stream(stream_id: str) -> Response:
         data = payload()

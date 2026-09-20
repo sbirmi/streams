@@ -304,6 +304,106 @@ class Repository:
             self._record_history(connection, "stream", stream_id, actor, current, None)
             return current
 
+    def move_streams(
+        self,
+        stream_ids: list[str],
+        revisions: dict[str, int],
+        target_stream_id: str,
+        placement: str,
+        actor: str,
+        root_stream_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Move a contiguous sibling block atomically, preserving its order."""
+
+        if not stream_ids:
+            raise ValueError("stream_ids must not be empty")
+        if len(set(stream_ids)) != len(stream_ids):
+            raise ValueError("stream_ids must be unique")
+        if placement not in {"before", "after", "child"}:
+            raise ValueError("placement must be before, after, or child")
+        with self.database.transaction() as connection:
+            rows = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
+            bundle_id = rows[0]["bundle_id"]
+            if any(row["bundle_id"] != bundle_id for row in rows):
+                raise ValueError("moved streams must belong to one bundle")
+            target_row = self._require_stream(connection, target_stream_id, bundle_id=bundle_id)
+            target = _decode(target_row)
+            for row in rows:
+                current = _decode(row)
+                expected = revisions.get(row["id"])
+                if not isinstance(expected, int):
+                    raise ValueError("a revision is required for every moved stream")
+                self._check_revision("stream", row["id"], current, expected)
+                if self._is_descendant(connection, target_stream_id, row["id"]):
+                    raise ValueError("a stream cannot be moved beneath its descendant")
+                if root_stream_id and not self._is_within_root(connection, row["id"], root_stream_id):
+                    raise ValueError("moved stream must remain inside the rooted view")
+            if root_stream_id:
+                self._require_stream(connection, root_stream_id, bundle_id=bundle_id)
+                if not self._is_within_root(connection, target_stream_id, root_stream_id):
+                    raise ValueError("move target must remain inside the rooted view")
+                if placement in {"before", "after"} and target_stream_id == root_stream_id:
+                    raise ValueError("cannot move beside the rooted stream")
+
+            parents = {row["parent_stream_id"] for row in rows}
+            if len(parents) != 1:
+                raise ValueError("moved streams must be siblings")
+            source_parent = rows[0]["parent_stream_id"]
+            sibling_rows = connection.execute(
+                "SELECT * FROM streams WHERE bundle_id = ? AND parent_stream_id IS ? "
+                "ORDER BY order_key, created_at, id", (bundle_id, source_parent)
+            ).fetchall()
+            sibling_ids = [row["id"] for row in sibling_rows]
+            source_indexes = sorted(sibling_ids.index(stream_id) for stream_id in stream_ids)
+            if source_indexes != list(range(source_indexes[0], source_indexes[-1] + 1)):
+                raise ValueError("moved streams must be contiguous siblings")
+
+            new_parent = target_stream_id if placement == "child" else target["parent_stream_id"]
+            destination_rows = connection.execute(
+                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS ? "
+                "ORDER BY order_key, created_at, id", (bundle_id, new_parent)
+            ).fetchall()
+            destination_ids = [row["id"] for row in destination_rows]
+            remaining = [stream_id for stream_id in sibling_ids if stream_id not in stream_ids]
+            if new_parent != source_parent:
+                remaining = destination_ids
+            if placement == "child":
+                insert_at = len(remaining)
+            else:
+                if target_stream_id not in remaining:
+                    raise ValueError("move target cannot be part of the moved block")
+                target_index = remaining.index(target_stream_id)
+                insert_at = target_index if placement == "before" else target_index + 1
+            result_ids = remaining[:insert_at] + stream_ids + remaining[insert_at:]
+            if new_parent == source_parent and result_ids == sibling_ids:
+                return [_decode(self._require_stream(connection, stream_id)) for stream_id in stream_ids]
+
+            affected_ids = list(dict.fromkeys(sibling_ids + destination_ids + result_ids))
+            before = {stream_id: _decode(self._require_stream(connection, stream_id)) for stream_id in affected_ids}
+            timestamp = now()
+            for index, stream_id in enumerate(result_ids, start=1):
+                parent = new_parent if stream_id in stream_ids else before[stream_id]["parent_stream_id"]
+                connection.execute(
+                    "UPDATE streams SET parent_stream_id = ?, order_key = ?, updated_at = ?, revision = revision + 1 "
+                    "WHERE id = ?", (parent, index * 1000, timestamp, stream_id)
+                )
+            # Reassign the old sibling list when moving across parents.
+            if new_parent != source_parent:
+                old_remaining = [stream_id for stream_id in sibling_ids if stream_id not in stream_ids]
+                for index, stream_id in enumerate(old_remaining, start=1):
+                    connection.execute(
+                        "UPDATE streams SET order_key = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                        (index * 1000, timestamp, stream_id)
+                    )
+            updated: list[dict[str, Any]] = []
+            for stream_id in affected_ids:
+                after = _decode(self._require_stream(connection, stream_id))
+                if before[stream_id] != after:
+                    self._record_history(connection, "stream", stream_id, actor, before[stream_id], after)
+                if stream_id in stream_ids:
+                    updated.append(after)
+            return updated
+
     def add_comment(self, stream_id: str, body: str, creator: str, comment_id: str | None = None,
                     sticky_note: bool = False) -> dict[str, Any]:
         comment_id = comment_id or new_id()

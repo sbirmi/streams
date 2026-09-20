@@ -68,8 +68,30 @@ The product uses explicit two-key commands for inserting a stream above, below, 
 | `ip` | Add a stream before the focused stream | `i` alone only shows pending-command feedback. |
 | `in` | Add a stream after/below the focused stream at the same level | |
 | `ic` | Add a child stream below the focused stream | Creates the next indented item. |
-| `> >` | Indent/move the focused stream beneath its previous sibling | The two `>` keys must arrive as a quick sequence. |
-| `< <` | Outdent/move the focused stream to its parent’s level | The two `<` keys must arrive as a quick sequence. |
+Moving an existing stream uses a general move mode instead of a separate shortcut for every relative case:
+
+| Key | Action | Notes |
+| --- | --- | --- |
+| `m` | Pick up the focused stream | Starts move mode; navigation chooses the destination. |
+| `v` | Start/extend or finish a contiguous sibling selection | Press `v` again to stop extending; the highlighted block remains selected. Press `m` to pick it up, then navigate to the target. |
+| `p` | Place before the focused target | Completes move mode. |
+| `n` | Place after the focused target | Completes move mode. |
+| `c` | Place as the focused target’s first child | Completes move mode. |
+| `u` | Promote one level | Places the selection after its current parent; unavailable for root streams or invisible rooted-view mutations. |
+
+Move mode shows a persistent command hint, for example:
+
+```text
+[m] moving 1 stream → target: Project X · [p] before · [n] after · [c] child · [u] promote · [Esc] cancel
+```
+
+The generic command HUD describes every valid next key with its action, rather than showing only bare key names. Prefixes use the same format, for example:
+
+```text
+[z] fold · [o] open one level · [O] open descendants · [c] close one level · [C] close descendants · [a] toggle hierarchy
+```
+
+The previous `>>`/`<<` shortcuts are retired in favor of move mode. Pointer move controls should use the same destinations and server operation.
 
 The `ip`/`in`/`ic` family makes the insertion destination explicit and prevents a lone `i` from mutating data. Each sequence shows its pending state and cancels on `Escape`.
 

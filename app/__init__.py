@@ -16,7 +16,8 @@ SHORTCUT_ACTIONS = {
     "edit", "add_comment",
     "open_help", "cancel_command", "zoom_enter", "zoom_back", "delete_stream",
     "delete_comment", "insert_before", "insert_after", "insert_child", "fold_open",
-    "fold_open_all", "fold_close", "fold_close_all", "fold_toggle",
+    "fold_open_all", "fold_close", "fold_close_all", "fold_toggle", "start_move", "start_selection",
+    "move_before", "move_after", "move_child", "move_promote",
 }
 
 

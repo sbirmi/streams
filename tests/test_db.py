@@ -197,6 +197,54 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual([stream["id"] for stream in streams], [first["id"], middle["id"], last["id"]])
         self.assertEqual([stream["order_key"] for stream in streams], [1000, 1500, 2000])
 
+    def test_move_stream_before_after_child_and_promote(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        third = self.repository.create_stream(bundle["id"], "Third", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+
+        moved = self.repository.move_streams(
+            [third["id"]], {third["id"]: third["revision"]}, first["id"], "before", "bob"
+        )[0]
+        self.assertEqual(moved["parent_stream_id"], None)
+        self.assertEqual([item["id"] for item in self.repository.list_streams(bundle["id"])],
+                         [third["id"], first["id"], second["id"], parent["id"]])
+
+        moved = self.repository.move_streams(
+            [second["id"]], {second["id"]: self.repository.get_stream(second["id"])["revision"]}, parent["id"], "child", "bob"
+        )[0]
+        self.assertEqual(moved["parent_stream_id"], parent["id"])
+        promoted = self.repository.move_streams(
+            [second["id"]], {second["id"]: moved["revision"]}, parent["id"], "after", "bob"
+        )[0]
+        self.assertIsNone(promoted["parent_stream_id"])
+
+    def test_move_streams_requires_contiguous_siblings_and_current_revisions(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        third = self.repository.create_stream(bundle["id"], "Third", "alice")
+        with self.assertRaises(ValueError):
+            self.repository.move_streams(
+                [first["id"], third["id"]],
+                {first["id"]: first["revision"], third["id"]: third["revision"]},
+                second["id"], "after", "bob"
+            )
+        with self.assertRaises(RevisionConflict):
+            self.repository.move_streams(
+                [first["id"]], {first["id"]: 0}, third["id"], "after", "bob"
+            )
+
+    def test_move_streams_rejects_descendant_target(self) -> None:
+        bundle = self.repository.create_bundle("Index", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=parent["id"])
+        with self.assertRaises(ValueError):
+            self.repository.move_streams(
+                [parent["id"]], {parent["id"]: parent["revision"]}, child["id"], "child", "bob"
+            )
+
     def test_order_key_is_server_controlled(self) -> None:
         bundle = self.repository.create_bundle("Index", "alice")
         stream = self.repository.create_stream(bundle["id"], "First", "alice")
