@@ -86,6 +86,17 @@ def _normalize_favorite(value: Any) -> bool:
     return value
 
 
+VALID_STATUSES = {"open", "resolved", "no_action"}
+
+
+def _normalize_status(value: Any) -> str:
+    if value == "no-action":
+        value = "no_action"
+    if not isinstance(value, str) or value not in VALID_STATUSES:
+        raise ValueError("status must be one of: open, resolved, no_action")
+    return value
+
+
 def _decode(row: Any) -> dict[str, Any]:
     result = dict(row)
     for field in ("owners", "tags"):
@@ -195,7 +206,7 @@ class Repository:
         query = "SELECT * FROM streams WHERE bundle_id = ?"
         parameters: list[Any] = [bundle_id]
         if not include_closed:
-            query += " AND closed_at IS NULL"
+            query += " AND status = 'open'"
         query += " ORDER BY order_key, created_at, id"
         with self.database.read() as connection:
             rows = connection.execute(query, parameters).fetchall()
@@ -209,7 +220,7 @@ class Repository:
         changes: dict[str, Any],
     ) -> dict[str, Any]:
         allowed = {"summary", "description", "owners", "priority", "snooze_until", "deadline",
-                   "closed_at", "close_status", "tags", "parent_stream_id", "favorite"}
+                   "status", "tags", "parent_stream_id", "favorite"}
         unknown = set(changes) - allowed
         if unknown:
             raise ValueError(f"unsupported stream fields: {sorted(unknown)}")
@@ -222,6 +233,8 @@ class Repository:
             changes["tags"] = _normalize_tags(changes["tags"])
         if "favorite" in changes:
             changes["favorite"] = _normalize_favorite(changes["favorite"])
+        if "status" in changes:
+            changes["status"] = _normalize_status(changes["status"])
         with self.database.transaction() as connection:
             current_row = self._require_stream(connection, stream_id)
             current = _decode(current_row)
@@ -247,6 +260,42 @@ class Repository:
                 raise RevisionConflict("stream", stream_id, latest)
             updated = _decode(self._require_stream(connection, stream_id))
             self._record_history(connection, "stream", stream_id, actor, current, updated)
+            return updated
+
+    def update_stream_statuses(
+        self, stream_ids: list[str], revisions: dict[str, int], status: str, actor: str
+    ) -> list[dict[str, Any]]:
+        """Set one status on one or more streams atomically with revision checks."""
+
+        if not stream_ids:
+            raise ValueError("stream_ids must not be empty")
+        if len(set(stream_ids)) != len(stream_ids):
+            raise ValueError("stream_ids must be unique")
+        status = _normalize_status(status)
+        with self.database.transaction() as connection:
+            rows = [self._require_stream(connection, stream_id) for stream_id in stream_ids]
+            current_values = {row["id"]: _decode(row) for row in rows}
+            for stream_id in stream_ids:
+                expected = revisions.get(stream_id)
+                if not isinstance(expected, int):
+                    raise ValueError("a revision is required for every stream")
+                self._check_revision("stream", stream_id, current_values[stream_id], expected)
+
+            timestamp = now()
+            updated: list[dict[str, Any]] = []
+            for stream_id in stream_ids:
+                current = current_values[stream_id]
+                if current["status"] == status:
+                    updated.append(current)
+                    continue
+                connection.execute(
+                    "UPDATE streams SET status = ?, updated_at = ?, revision = revision + 1 "
+                    "WHERE id = ? AND revision = ?",
+                    (status, timestamp, stream_id, current["revision"]),
+                )
+                after = _decode(self._require_stream(connection, stream_id))
+                self._record_history(connection, "stream", stream_id, actor, current, after)
+                updated.append(after)
             return updated
 
     def delete_stream(self, stream_id: str, expected_revision: int, actor: str) -> dict[str, Any]:

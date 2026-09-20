@@ -87,6 +87,18 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(conflict.status_code, 409)
         self.assertIs(conflict.json["current"]["favorite"], True)
 
+    def test_stream_status_api_supports_single_and_bulk_updates(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        first = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "First", "actor": "alice"}).json["stream"]
+        second = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "Second", "actor": "alice"}).json["stream"]
+
+        response = self.client.post("/api/streams/status", json={
+            "actor": "alice", "stream_ids": [first["id"], second["id"]],
+            "revisions": {first["id"]: 1, second["id"]: 1}, "status": "no_action",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["status"] for item in response.json["streams"]], ["no_action", "no_action"])
+
     def test_move_api_moves_a_stream_with_revision_check(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         first = self.client.post(f"/api/bundles/{bundle['id']}/streams", json={"summary": "First", "actor": "alice"}).json["stream"]
@@ -221,7 +233,8 @@ class ApplicationShellTestCase(unittest.TestCase):
             "delete_visual: dv",
             "fold_open: zo", "fold_open_all: zO", "fold_close: zc", "fold_close_all: zC",
             "fold_toggle: za", "start_move: m", "start_selection: v", "move_before: p",
-            "move_after: n", "move_child: c", "move_promote: u",
+            "move_after: n", "move_child: c", "move_promote: u", "mark_open: so",
+            "mark_resolved: sr", "mark_no_action: sn",
         ]) + "\n", encoding="utf-8")
 
         shortcuts = load_shortcuts(str(path))

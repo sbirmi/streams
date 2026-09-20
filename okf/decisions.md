@@ -64,3 +64,9 @@ Favorites are a boolean property on streams and are shared workspace state under
 - **Status:** accepted for initial implementation
 - **Decision:** Move one stream or a contiguous sibling block through a single move mode. `m` picks up the selection, navigation chooses a target, and `p`, `n`, or `c` places it before, after, or as a child. `u` promotes it after its current parent. The command HUD describes keys with their actions; separate `>>`/`<<` movement commands are not used.
 - **Reason:** One target-and-placement interaction covers local correction, cross-branch movement, promotion, and blocks without requiring users to memorize a command for each source/target combination. Copying is deferred until subtree/comment/history semantics are needed.
+
+## D010 — Single stream status field
+
+- **Status:** accepted for initial implementation
+- **Decision:** Use one revision-checked `status` field with `open`, `resolved`, and `no_action` values. Resolved and no-action items share muted/crossed-out presentation; the status icon distinguishes them with a check mark versus a muted open circle. Duplicate context remains in descriptions or comments.
+- **Reason:** The initial workflow needs to distinguish completed work from an intentional decision not to act without introducing separate lifecycle and resolution fields. More outcomes can be added if real usage requires them.

@@ -8,7 +8,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R2 — Read:** A user can view a note and its updates/comments.
 - **R3 — Update:** A user can edit note metadata and content, including an ordered owner list and optional date-only deadline.
 - **R4 — Append:** A user can add a short update/comment to a note without rewriting its history.
-- **R5 — Organize:** Notes can have a small amount of structure such as status, tags, timestamps, owners, and deadlines. Tags are an ordered list of non-empty strings.
+- **R5 — Organize:** Notes can have a small amount of structure such as status, tags, timestamps, owners, and deadlines. Status is one of `open`, `resolved`, or `no_action`; tags are an ordered list of non-empty strings.
 - **R6 — Find:** A user can list and search/filter notes sufficiently for a small shared collection.
 - **R7 — Conflict safety:** A stale editor cannot silently overwrite a newer revision. The user must be shown a conflict and given a safe merge/retry path.
 - **R8 — Shared access:** Any user who can reach the service can read and write according to the trusted-network model.
@@ -16,7 +16,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R10 — Compact hierarchy:** The primary view can show topics, streams/issues, child items, and recent comments in a compact expandable hierarchy.
 - **R11 — Alternate views:** The system can support saved or shareable views ordered/filtered by priority and deadline, last update, and staleness.
 - **R12 — Comment window:** A view can show one, two, or N recent comments per stream, with an action to reveal more.
-- **R13 — Keyboard operation:** Navigation and common actions—add, edit, move, complete, expand/collapse, and show more—have keyboard shortcuts.
+- **R13 — Keyboard operation:** Navigation and common actions—add, edit, move, change status, expand/collapse, and show more—have keyboard shortcuts.
 - **R14 — Markdown:** Descriptions, summaries, and comments accept Markdown and render it safely.
 - **R15 — Shareable locations:** Users can link directly to a stream or to a specific ordering/filter/view state.
 - **R16 — History:** Changes retain enough before/after information to support audit and targeted manual recovery.

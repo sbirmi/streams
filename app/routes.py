@@ -156,6 +156,20 @@ def register_routes(app: Flask) -> None:
             stream_id, expected_revision, actor(data), changes
         ))
 
+    @app.post("/api/streams/status")
+    def update_stream_statuses() -> Response:
+        data = payload()
+        stream_ids = data.get("stream_ids")
+        revisions = data.get("revisions")
+        status = data.get("status")
+        if not isinstance(stream_ids, list) or not all(isinstance(item, str) for item in stream_ids):
+            raise ValueError("stream_ids must be a list of stream IDs")
+        if not isinstance(revisions, dict) or not isinstance(status, str):
+            raise ValueError("revisions and status are required")
+        return jsonify(streams=repository().update_stream_statuses(
+            stream_ids, revisions, status, actor(data)
+        ))
+
     @app.delete("/api/streams/<stream_id>")
     def delete_stream(stream_id: str) -> Response:
         data = payload()

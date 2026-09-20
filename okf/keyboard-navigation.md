@@ -2,6 +2,8 @@
 
 Status: proposed. This document is the working home for keyboard navigation, focus behavior, and shortcut decisions. Exact bindings remain subject to prototype review.
 
+Status changes use `so` / `sr` / `sn` for open, resolved, and no action needed. When a completed `v` selection exists, these commands apply to the selected contiguous sibling block atomically; otherwise they apply to the focused stream.
+
 ## Focus model
 
 The primary view has two focus domains within each visible stream row:

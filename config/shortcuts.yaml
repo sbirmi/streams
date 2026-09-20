@@ -31,3 +31,6 @@ move_before: p
 move_after: n
 move_child: c
 move_promote: u
+mark_open: so
+mark_resolved: sr
+mark_no_action: sn

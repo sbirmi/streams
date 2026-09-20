@@ -18,6 +18,8 @@ The hierarchy is not limited to one child level. Rows may be nested to multiple 
 
 ## Current prototype decisions
 
+Streams use one status field with the values `open`, `resolved`, and `no_action` (displayed as “No action needed”). The status control is a compact clickable circle/check at the start of each row; its menu offers the three values. Resolved and no-action rows are both muted and crossed out, but resolved uses a check mark while no-action keeps a muted open circle and an explicit label. Both terminal states remain reopenable through the same menu. The keyboard equivalents are `s o`, `s r`, and `s n`; after `v` selects a sibling block, the same commands apply one revision-checked bulk operation to the selected streams only.
+
 The first screen under review is intentionally narrow in scope:
 
 ```text
@@ -41,8 +43,8 @@ The first screen under review is intentionally narrow in scope:
 - Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
 - Add-stream controls and reordering controls are deliberately not shown in this prototype.
 - Stream IDs are shown as small numeric chips between the status control and summary. Descriptions and comments can refer to another stream with `@Stream:<number>`; the notation renders as a compact reference chip that reflects whether the referenced stream is open or resolved.
-- Reference chips are intended to become actionable: from a chip, a user should be able to inspect the referenced stream and apply status actions such as close or reopen, subject to the normal edit/conflict rules.
-- The prototype includes a few resolved streams so their muted/checked treatment can be reviewed; closed-item filtering remains out of scope for this pass.
+- Reference chips are intended to become actionable: from a chip, a user should be able to inspect the referenced stream and apply status actions such as resolve or reopen, subject to the normal edit/conflict rules.
+- The prototype includes resolved and no-action streams so their muted/crossed-out treatment can be reviewed; closed-item filtering remains out of scope for this pass.
 - Resolved stream summaries are crossed out. Their descriptions collapse to one line by default and expand to the normal five-line allowance when the resolved row is selected/focused.
 - `j`/`k` navigate the currently visible rows only; collapsed descendants are skipped. Focus indication follows the row indentation at every nesting depth.
 - The selected row is highlighted across its full width so keyboard navigation with `j`/`k` is easy to follow.
@@ -126,7 +128,7 @@ The eventual action set should cover:
 - inserting a new item before, after, or beneath a selected item
 - moving an existing item before, after, or beneath another item
 - adding a comment
-- marking an item done/closed
+- changing an item’s status and reopening resolved/no-action items
 - showing more comments
 - jumping to search or a saved view
 

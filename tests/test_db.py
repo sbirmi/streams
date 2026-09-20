@@ -20,7 +20,7 @@ class DatabaseTestCase(unittest.TestCase):
         with self.database.read() as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
             self.assertEqual(connection.execute("PRAGMA foreign_keys").fetchone()[0], 1)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 4)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0], 5)
 
     def test_stream_favorite_defaults_false_and_updates_with_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
@@ -43,6 +43,38 @@ class DatabaseTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.repository.update_stream(stream["id"], stream["revision"], "alice", {"favorite": 1})
+
+    def test_stream_status_updates_and_rejects_invalid_values(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+
+        updated = self.repository.update_stream(stream["id"], stream["revision"], "alice", {"status": "resolved"})
+
+        self.assertEqual(updated["status"], "resolved")
+        self.assertEqual(updated["revision"], 2)
+        with self.assertRaises(ValueError):
+            self.repository.update_stream(updated["id"], updated["revision"], "alice", {"status": "closed"})
+
+    def test_bulk_status_update_is_atomic_and_revision_checked(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+
+        updated = self.repository.update_stream_statuses(
+            [first["id"], second["id"]],
+            {first["id"]: first["revision"], second["id"]: second["revision"]},
+            "no_action", "bob",
+        )
+
+        self.assertEqual([item["status"] for item in updated], ["no_action", "no_action"])
+        self.assertEqual(self.repository.get_stream(first["id"])["revision"], 2)
+        with self.assertRaises(RevisionConflict):
+            self.repository.update_stream_statuses(
+                [first["id"], second["id"]],
+                {first["id"]: 1, second["id"]: 2},
+                "open", "carol",
+            )
+        self.assertEqual(self.repository.get_stream(second["id"])["status"], "no_action")
 
     def test_stream_update_records_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
