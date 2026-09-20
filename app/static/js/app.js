@@ -250,7 +250,24 @@
   function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
   const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction" };
-  function renderShortcutHelp() { shortcutList.innerHTML = Object.entries(state.shortcuts).map(([action, bindings]) => `<div><dt>${bindings.map((binding) => `<kbd>${escapeHtml(binding)}</kbd>`).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`).join(""); }
+  const shortcutGroups = [
+    { title: "Navigation", actions: ["move_left", "move_right", "move_up", "move_down", "move_previous_sibling", "move_next_sibling", "zoom_enter", "zoom_back"] },
+    { title: "Adding, Editing, and Deleting", actions: ["edit", "add_comment", "insert_before", "insert_after", "insert_child", "delete_stream", "delete_comment", "delete_visual"] },
+    { title: "Moving", note: "Press m to enter move mode; p, n, c, and u are available there.", actions: ["start_selection", "start_move"], contextualActions: ["move_before", "move_after", "move_child", "move_promote"] },
+    { title: "Status", actions: ["mark_open", "mark_resolved", "mark_no_action"] },
+    { title: "Folding", actions: ["fold_open", "fold_open_all", "fold_close", "fold_close_all", "fold_toggle"] },
+    { title: "Transactions", actions: ["transaction_undo", "transaction_redo"] },
+    { title: "Help and Cancellation", actions: ["open_help", "cancel_command"] },
+  ];
+  function renderShortcutBinding(binding) { return `<kbd>${escapeHtml(binding)}</kbd>`; }
+  function renderShortcutEntry(action) {
+    const bindings = state.shortcuts[action];
+    if (!bindings) return "";
+    return `<div><dt>${bindings.map(renderShortcutBinding).join(" / ")}</dt><dd>${escapeHtml(shortcutLabels[action] || action)}</dd></div>`;
+  }
+  function renderShortcutHelp() {
+    shortcutList.innerHTML = shortcutGroups.map(({ title, note, actions, contextualActions = [] }) => `<section class="shortcut-group"><h3>${escapeHtml(title)}</h3>${note ? `<p class="shortcut-group-note">${escapeHtml(note)}</p>` : ""}<dl>${actions.map(renderShortcutEntry).join("")}</dl>${contextualActions.length ? `<div class="shortcut-context-entries"><dl>${contextualActions.map(renderShortcutEntry).join("")}</dl></div>` : ""}</section>`).join("");
+  }
   const namedKeys = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "Backspace", "Escape", "PageUp", "PageDown", "Home", "End", "Tab"]);
   const modifierOnlyKeys = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
   function bindingTokens(binding) { return binding.includes(" ") ? binding.trim().split(/\s+/) : (namedKeys.has(binding) ? [binding] : [...binding]); }

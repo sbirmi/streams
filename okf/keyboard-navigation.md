@@ -4,6 +4,8 @@ Status: proposed. This document is the working home for keyboard navigation, foc
 
 Status changes use `so` / `sr` / `sn` for open, resolved, and no action needed. When a completed `v` selection exists, these commands apply to the selected contiguous sibling block atomically; otherwise they apply to the focused stream.
 
+The in-app shortcut help presents the bindings in these groups: Navigation; Adding, Editing, and Deleting; Moving; Status; Folding; Transactions; and Help and Cancellation. Contextual bindings are shown with their context: `p`, `n`, `c`, and `u` are move-mode actions after `m` enters move mode, while `Escape` cancels a pending command or active move/selection state.
+
 ## Focus model
 
 The primary view has two focus domains within each visible stream row:
@@ -81,16 +83,18 @@ Moving an existing stream uses a general move mode instead of a separate shortcu
 | --- | --- | --- |
 | `m` | Pick up the focused stream | Starts move mode; navigation chooses the destination. |
 | `v` | Start/extend or finish a contiguous sibling selection | Press `v` again to stop extending; the highlighted block remains selected. Press `m` to pick it up, then navigate to the target. |
-| `p` | Place before the focused target | Completes move mode. |
-| `n` | Place after the focused target | Completes move mode. |
-| `c` | Place as the focused target’s first child | Completes move mode. |
-| `u` | Promote one level | Places the selection after its current parent; unavailable for root streams or invisible rooted-view mutations. |
+| `p` | Place before the focused target | Move-mode action; completes move mode. |
+| `n` | Place after the focused target | Move-mode action; completes move mode. |
+| `c` | Place as the focused target’s first child | Move-mode action; completes move mode. |
+| `u` | Promote one level | Move-mode action; places the selection after its current parent; unavailable for root streams or invisible rooted-view mutations. |
 
 Move mode shows a persistent command hint, for example:
 
 ```text
 [m] moving 1 stream → target: Project X · [p] before · [n] after · [c] child · [u] promote · [Esc] cancel
 ```
+
+In the in-app help, these four move destinations are indented beneath the `m` move-mode entry to make their relationship visually clear.
 
 The generic command HUD describes every valid next key with its action, rather than showing only bare key names. Prefixes use the same format, for example:
 
