@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from html import escape
 from typing import Any
 
 from flask import Flask, Response, current_app, jsonify, render_template, request, g
@@ -100,13 +101,33 @@ def register_routes(app: Flask) -> None:
                 limit = int(request.args["limit"])
             except ValueError as error:
                 raise ValueError("limit must be an integer") from error
-        return jsonify(transactions=method(limit=limit))
+        if limit < 1 or limit > 500:
+            raise ValueError("limit must be between 1 and 500")
+        query = request.args.get("q") or request.args.get("query")
+        actor_filter = request.args.get("actor")
+        kind = request.args.get("kind")
+        state = request.args.get("state")
+        return jsonify(transactions=method(
+            limit=limit, query=query, actor=actor_filter, kind=kind, state=state,
+        ))
+
+    @app.get("/api/transactions/state")
+    def transaction_state() -> Response:
+        """Return the shared logical transaction position for the primary view."""
+
+        return jsonify(state=transaction_method("get_transaction_state")())
 
     @app.get("/api/transactions/<transaction_id>")
     def get_transaction(transaction_id: str) -> Response:
         """Return transaction metadata, including focus context when available."""
 
         return jsonify(transaction=transaction_method("get_transaction")(transaction_id))
+
+    @app.get("/transactions")
+    def transactions_page() -> Response:
+        """Render the read-only transaction explorer shell."""
+
+        return render_template("transactions.html", app_name=current_app.config["APP_NAME"])
 
     def apply_transaction_action(action: str) -> Response:
         data = payload()

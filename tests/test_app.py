@@ -269,6 +269,69 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(len(response.json["transactions"]), 4)
 
+    def test_transaction_state_endpoint_reports_logical_position(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Draft", "actor": "alice"}
+        ).json["stream"]
+        self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"actor": "bob", "revision": stream["revision"], "changes": {"summary": "Final"}},
+        )
+
+        response = self.client.get("/api/transactions/state")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json["state"]["at_head"])
+        self.assertEqual(response.json["state"]["mode"], "head")
+        self.assertEqual(response.json["state"]["transaction"]["actor"], "bob")
+
+        self.client.post("/api/transactions/undo", json={"actor": "carol"})
+        response = self.client.get("/api/transactions/state")
+        self.assertFalse(response.json["state"]["at_head"])
+        self.assertEqual(response.json["state"]["mode"], "historical")
+        self.assertEqual(response.json["state"]["transaction"]["actor"], "bob")
+
+        self.client.post("/api/transactions/redo", json={"actor": "carol"})
+        response = self.client.get("/api/transactions/state")
+        self.assertTrue(response.json["state"]["at_head"])
+
+        self.client.post("/api/transactions/undo", json={"actor": "carol"})
+        current = self.client.get(f"/api/streams/{stream['id']}").json["stream"]
+        self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"actor": "dana", "revision": current["revision"], "changes": {"summary": "Different"}},
+        )
+        response = self.client.get("/api/transactions/state")
+        self.assertTrue(response.json["state"]["at_head"])
+        self.assertEqual(response.json["state"]["transaction"]["actor"], "dana")
+
+    def test_transaction_explorer_filters_and_detail_include_history_metadata(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Release notes", "actor": "alice"}
+        ).json["stream"]
+        self.client.patch(
+            f"/api/streams/{stream['id']}",
+            json={"revision": stream["revision"], "actor": "bob", "changes": {"summary": "Release checklist"}},
+        )
+
+        response = self.client.get("/api/transactions?q=updated&kind=mutation&state=active&limit=1")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json["transactions"]), 1)
+        transaction = response.json["transactions"][0]
+        self.assertEqual(transaction["actor"], "bob")
+
+        detail = self.client.get(f"/api/transactions/{transaction['id']}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json["transaction"]["history"][0]["object_id"], stream["id"])
+        self.assertEqual(detail.json["transaction"]["related_objects"][0]["summary"], "Release checklist")
+
+        page = self.client.get("/transactions?q=updated")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Transaction history", page.data)
+        self.assertIn(b"transaction-query", page.data)
+        self.assertIn(b"transactions.js", page.data)
+
     def test_api_root_context_rejects_sibling_of_rooted_view(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         root = self.client.post(

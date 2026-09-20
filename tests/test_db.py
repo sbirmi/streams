@@ -57,6 +57,38 @@ class DatabaseTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repository.redo_latest("alice")
 
+    def test_transaction_state_tracks_head_undo_redo_and_new_mutation(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
+        changed = self.repository.update_stream(stream["id"], 1, "bob", {"summary": "Ship release"})
+
+        state = self.repository.get_transaction_state()
+        self.assertTrue(state["at_head"])
+        self.assertEqual(state["mode"], "head")
+        self.assertEqual(state["transaction"]["id"], changed["transaction_id"] if "transaction_id" in changed else self.repository.list_transactions()[0]["id"])
+
+        self.repository.undo_latest("carol")
+        state = self.repository.get_transaction_state()
+        self.assertFalse(state["at_head"])
+        self.assertEqual(state["mode"], "historical")
+        undone = self.repository.list_transactions(kind="mutation", state="undone")[0]
+        self.assertEqual(state["transaction"]["id"], undone["id"])
+        self.assertEqual(state["transaction"]["actor"], "bob")
+
+        self.repository.redo_latest("carol")
+        state = self.repository.get_transaction_state()
+        self.assertTrue(state["at_head"])
+        self.assertEqual(state["mode"], "head")
+        self.assertEqual(state["transaction"]["id"], changed["transaction_id"] if "transaction_id" in changed else self.repository.list_transactions(kind="mutation", state="active")[0]["id"])
+
+        self.repository.undo_latest("carol")
+        current = self.repository.get_stream(stream["id"])
+        self.repository.update_stream(stream["id"], current["revision"], "dana", {"summary": "Different"})
+        state = self.repository.get_transaction_state()
+        self.assertTrue(state["at_head"])
+        self.assertEqual(state["mode"], "head")
+        self.assertEqual(state["transaction"]["actor"], "dana")
+
     def test_stream_favorite_defaults_false_and_updates_with_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")

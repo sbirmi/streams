@@ -590,13 +590,41 @@ class Repository:
             self._record_history(connection, "comment", comment_id, actor, current, None)
             return current
 
-    def list_transactions(self, limit: int = 100) -> list[dict[str, Any]]:
-        """Return durable transaction envelopes, newest first."""
+    def list_transactions(
+        self,
+        limit: int = 100,
+        query: str | None = None,
+        actor: str | None = None,
+        kind: str | None = None,
+        state: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return searchable durable transaction envelopes, newest first."""
         if not isinstance(limit, int) or limit < 1:
             raise ValueError("limit must be positive")
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        if query:
+            clauses.append("(summary LIKE ? COLLATE NOCASE OR actor LIKE ? COLLATE NOCASE)")
+            pattern = f"%{query}%"
+            parameters.extend((pattern, pattern))
+        if actor:
+            clauses.append("actor = ?")
+            parameters.append(actor)
+        if kind:
+            if kind not in {"mutation", "undo", "redo"}:
+                raise ValueError("kind must be mutation, undo, or redo")
+            clauses.append("kind = ?")
+            parameters.append(kind)
+        if state:
+            if state not in {"active", "undone", "abandoned"}:
+                raise ValueError("state must be active, undone, or abandoned")
+            clauses.append("state = ?")
+            parameters.append(state)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        parameters.append(limit)
         with self.database.read() as connection:
             rows = connection.execute(
-                "SELECT * FROM transactions ORDER BY rowid DESC LIMIT ?", (limit,)
+                "SELECT * FROM transactions" + where + " ORDER BY rowid DESC LIMIT ?", parameters
             ).fetchall()
         return [dict(row) for row in rows]
 
@@ -605,9 +633,85 @@ class Repository:
             row = connection.execute(
                 "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
             ).fetchone()
-        if row is None:
-            raise NotFound(f"transaction {transaction_id}")
-        return dict(row)
+            if row is None:
+                raise NotFound(f"transaction {transaction_id}")
+
+            transaction = dict(row)
+            history_rows = connection.execute(
+                "SELECT * FROM history WHERE transaction_id = ? ORDER BY sequence, rowid",
+                (transaction_id,),
+            ).fetchall()
+            history: list[dict[str, Any]] = []
+            for history_row in history_rows:
+                item = dict(history_row)
+                item["changed_fields"] = json.loads(item["changed_fields"])
+                item["before_value"] = json.loads(item["before_value"]) if item["before_value"] else None
+                item["after_value"] = json.loads(item["after_value"]) if item["after_value"] else None
+                history.append(item)
+
+            related_objects = []
+            for item in history:
+                snapshot = item["after_value"] or item["before_value"] or {}
+                related_objects.append({
+                    "object_type": item["object_type"],
+                    "object_id": item["object_id"],
+                    "exists_in_snapshot": item["after_value"] is not None,
+                    "summary": snapshot.get("summary") or snapshot.get("body"),
+                    "current_revision": snapshot.get("revision"),
+                })
+            transaction["history"] = history
+            transaction["related_objects"] = related_objects
+            return transaction
+
+    def get_transaction_state(self) -> dict[str, Any]:
+        """Return the shared logical transaction position for the view bar.
+
+        Undo leaves the targeted mutation in ``undone`` state, which marks the
+        workspace as being at an older logical position.  A redo restores that
+        mutation to ``active``; a new mutation abandons undone mutations and
+        therefore establishes a new head.
+        """
+        with self.database.read() as connection:
+            undone = connection.execute(
+                "SELECT * FROM transactions "
+                "WHERE kind = 'mutation' AND state = 'undone' "
+                "ORDER BY rowid DESC LIMIT 1"
+            ).fetchone()
+            if undone is not None:
+                transaction = dict(undone)
+                return {
+                    "at_head": False,
+                    "mode": "historical",
+                    "transaction": {
+                        "id": transaction["id"],
+                        "actor": transaction["actor"],
+                        "created_at": transaction["created_at"],
+                        "action_type": transaction["action_type"],
+                        "summary": transaction["summary"],
+                        "kind": transaction["kind"],
+                        "state": transaction["state"],
+                    },
+                }
+
+            head = connection.execute(
+                "SELECT * FROM transactions "
+                "WHERE kind = 'mutation' AND state = 'active' "
+                "ORDER BY rowid DESC LIMIT 1"
+            ).fetchone()
+            transaction = dict(head) if head is not None else None
+            return {
+                "at_head": True,
+                "mode": "head",
+                "transaction": ({
+                    "id": transaction["id"],
+                    "actor": transaction["actor"],
+                    "created_at": transaction["created_at"],
+                    "action_type": transaction["action_type"],
+                    "summary": transaction["summary"],
+                    "kind": transaction["kind"],
+                    "state": transaction["state"],
+                } if transaction is not None else None),
+            }
 
     def undo_latest(self, actor: str, transaction_id: str | None = None) -> dict[str, Any]:
         return self._reverse_latest(actor, redo=False, transaction_id=transaction_id)

@@ -10,7 +10,7 @@
     urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus");
   }
   readUrlState();
-  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null };
+  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, commentEditing: null, deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null, historyPosition: null };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -118,6 +118,35 @@
   function markdown(value) { return escapeHtml(value).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`(.+?)`/g, "<code>$1</code>").replace(/\n/g, "<br>"); }
   function displayDate(value) { const raw = String(value ?? ""); const timestamp = raw.match(/^(\d{4})[-/](\d{2})[-/](\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(Z|[+-]\d{2}:?\d{2})?$/); if (timestamp) return `${timestamp[1]}-${timestamp[2]}-${timestamp[3]} ${timestamp[4]}:${timestamp[5]}:${timestamp[6] || "00"}${timestamp[7] || ""}`; const date = raw.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/); return date ? `${date[1]}-${date[2]}-${date[3]}` : raw; }
   function displayDeadline(value) { return value ? displayDate(value) : ""; }
+  function historyTransaction(value) { return value && typeof value === "object" ? value : null; }
+  function historyTime(transaction) { return transaction?.created_at || transaction?.timestamp || transaction?.time || null; }
+  function historyActor(transaction) { return transaction?.actor || transaction?.created_by || transaction?.username || "unknown actor"; }
+  function historyId(transaction) { return transaction?.id || transaction?.transaction_id || null; }
+  function historyStateFrom(body) {
+    const source = body?.state || body?.history || body?.transaction_state || body || {};
+    const head = historyTransaction(source.head || source.current_head || source.latest_transaction);
+    const position = historyTransaction(source.position || source.current_position || source.current_transaction || source.visible_transaction || source.transaction);
+    const effectiveHead = head || (source.at_head === true ? position : null);
+    const atHead = typeof source.at_head === "boolean" ? source.at_head : !(position && head && historyId(position) && historyId(head) && historyId(position) !== historyId(head));
+    return { atHead, head: effectiveHead, position: position || effectiveHead };
+  }
+  function renderHistoryPosition() {
+    const element = document.querySelector("#toolbar-stats");
+    if (!element) return;
+    const history = state.historyPosition;
+    const transaction = history?.atHead ? history.head : history?.position;
+    if (!transaction || !historyTime(transaction)) return;
+    const label = history.atHead ? "Last change" : "History: before";
+    const id = historyId(transaction);
+    const href = id ? `/transactions?transaction=${encodeURIComponent(id)}` : "/transactions";
+    const line = `${label} ${historyActor(transaction)} · ${displayDate(historyTime(transaction))}`;
+    element.insertAdjacentHTML("beforeend", `<a class="toolbar-history ${history.atHead ? "" : "is-older"}" href="${href}">${escapeHtml(line)}</a>`);
+  }
+  function renderToolbarStats(countLabel) {
+    const element = document.querySelector("#toolbar-stats");
+    element.innerHTML = `<span class="toolbar-count">${escapeHtml(countLabel)}</span>`;
+    renderHistoryPosition();
+  }
   function normalizeDateInput(value) { return String(value ?? "").trim().replaceAll("/", "-") || null; }
   function childrenOf(id, items = state.streams) { return items.filter((stream) => stream.parent_stream_id === id); }
   function selectedStreamById(id) { return state.streams.find((stream) => stream.id === id); }
@@ -187,12 +216,12 @@
     list.innerHTML = items.length ? (rootId ? renderStream(selectedStreamById(rootId), 0, items) : renderChildren(null, 0, items)) : (state.pendingInsert ? renderPlaceholder(0) : '<div class="empty-filter">No streams match this filter.</div>');
     const viewItems = currentRootItems();
     const open = viewItems.filter((stream) => !isClosed(stream)).length;
-    document.querySelector("#toolbar-stats").textContent = `${open} open stream${open === 1 ? "" : "s"} · ${viewItems.length} total`;
+    renderToolbarStats(`${open} open stream${open === 1 ? "" : "s"} · ${viewItems.length} total`);
   }
   function renderDashboard() {
     const favorites = favoriteStreams();
     const count = favorites.length;
-    document.querySelector("#toolbar-stats").textContent = `${count} favorite stream${count === 1 ? "" : "s"}`;
+    renderToolbarStats(`${count} favorite stream${count === 1 ? "" : "s"}`);
     list.innerHTML = count ? favorites.map((stream) => {
       const breadcrumbs = streamPath(stream).map((item, index, path) => `<button class="dashboard-breadcrumb" type="button" data-dashboard-root="${escapeHtml(item.id)}">${escapeHtml(item.summary)}${index < path.length - 1 ? " /" : ""}</button>`).join(" ");
       const owners = (stream.owners || []).join(", ");
@@ -411,7 +440,8 @@
       showCommandHud(message);
     }
   }
-  async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; render(); return; } const previousExpanded = Object.fromEntries(state.streams.map((stream) => [stream.id, stream.expanded])); const body = await api(`/api/bundles/${state.bundle.id}/streams`); state.streams = body.streams.map((stream) => ({ ...stream, expanded: previousExpanded[stream.id] ?? (stream.expanded !== false) })); if (state.dashboard) { const focused = urlState.focus?.startsWith("stream:") ? urlState.focus.slice(7) : null; state.selected = focused && favoriteStreams().some((stream) => stream.id === focused) ? focused : favoriteStreams()[0]?.id || null; updateRootLabel(); render(); return; } state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; if (!state.presentationLoaded) { applyUrlState(); applyPresentation(); } updateRootLabel(); render(); savePresentationAndUrl(); }
+  async function loadHistoryPosition() { try { state.historyPosition = historyStateFrom(await api("/api/transactions/state")); } catch (_) { state.historyPosition = null; } }
+  async function loadStreams() { if (!state.bundle) { state.streams = []; state.selected = null; await loadHistoryPosition(); render(); return; } const previousExpanded = Object.fromEntries(state.streams.map((stream) => [stream.id, stream.expanded])); const [body] = await Promise.all([api(`/api/bundles/${state.bundle.id}/streams`), loadHistoryPosition()]); state.streams = body.streams.map((stream) => ({ ...stream, expanded: previousExpanded[stream.id] ?? (stream.expanded !== false) })); if (state.dashboard) { const focused = urlState.focus?.startsWith("stream:") ? urlState.focus.slice(7) : null; state.selected = focused && favoriteStreams().some((stream) => stream.id === focused) ? focused : favoriteStreams()[0]?.id || null; updateRootLabel(); render(); return; } state.rootPath = state.rootPath.filter((id) => state.streams.some((stream) => stream.id === id)); if (!state.selected || !state.streams.some((stream) => stream.id === state.selected)) state.selected = state.streams[0]?.id || null; if (!state.presentationLoaded) { applyUrlState(); applyPresentation(); } updateRootLabel(); render(); savePresentationAndUrl(); }
   async function setFavorite(id, favorite) { const stream = selectedStreamById(id); if (!stream) return; try { const body = await api(`/api/streams/${id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: stream.revision, changes: { favorite } }) }); const updated = body.stream || body; Object.assign(stream, updated); render(); document.querySelector("#status-message").textContent = favorite ? "Added to favorites" : "Removed from favorites"; } catch (error) { document.querySelector("#status-message").textContent = error.status === 409 ? "This stream changed elsewhere. Refresh before changing its favorite status." : error.message; } }
   async function copyLink() { const link = new URL(window.location.href).toString(); try { await navigator.clipboard.writeText(link); } catch (_) { const input = document.createElement("input"); input.value = link; document.body.appendChild(input); input.select(); document.execCommand("copy"); input.remove(); } const button = document.querySelector('[data-action="copy-link"]'); const original = button.textContent; button.textContent = "Copied"; setTimeout(() => { button.textContent = original; }, 1400); }
   async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = shortcutBody.shortcuts; renderShortcutHelp(); const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; document.querySelector("#view-select").value = state.view; updateChrome(); updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }

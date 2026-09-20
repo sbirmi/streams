@@ -15,18 +15,18 @@
           <div class="brand"><span class="brand-mark">S</span><span class="brand-copy"><span class="brand-prefix">streams :</span> <span id="bundle-name" class="breadcrumb">Loading…</span></span></div>
           <div class="topbar-actions">
             <label class="username-field"><span class="sr-only">Your username</span><input id="username" type="text" value="" placeholder="username" autocomplete="nickname"></label>
-            <button class="icon-button" type="button" title="Keyboard shortcuts" data-action="shortcuts">?</button>
+            <a class="secondary-button" href="/transactions">Transactions</a><button class="icon-button" type="button" title="Keyboard shortcuts" data-action="shortcuts">?</button>
           </div>
         </header>
         <section class="viewbar" aria-label="Viewbar controls">
           <label class="search-control"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Filter streams" autocomplete="off"></label>
           <div class="toolbar-controls"><label class="compact-control"><span class="sr-only">View</span><select id="view-select"><option value="priority">Priority</option><option value="recent">Recently touched</option><option value="manual">Manual order</option><option value="stale">Stale</option></select></label><span id="dashboard-label" class="dashboard-label" hidden>Favorites</span><button class="secondary-button" type="button" data-action="dashboard">Favorites</button><button class="secondary-button" type="button" data-action="index" hidden>Index</button><button class="secondary-button" type="button" data-action="copy-link">Copy link</button><button class="secondary-button" type="button" data-action="add-stream">Add stream</button></div>
-          <div id="toolbar-stats" class="toolbar-stats">Loading streams…</div>
+          <div id="toolbar-stats" class="toolbar-stats"><span class="toolbar-count">Loading streams…</span></div>
         </section>
       </div>
       <div id="command-hud" class="command-hud" aria-live="polite" hidden></div>
       <section id="stream-list" class="stream-list" aria-label="Streams" tabindex="0"><div class="empty-filter">Loading streams…</div></section>
-      <footer class="prototype-footer"><span id="status-message">Shared workspace</span><span id="transaction-status" class="transaction-status" hidden aria-live="polite"><span class="transaction-status-copy"></span> <a href="/transactions" title="Transaction history (coming soon)">history</a></span><button type="button" data-action="refresh">Refresh</button></footer>
+      <footer class="prototype-footer"><span id="status-message">Shared workspace</span><span id="transaction-status" class="transaction-status" hidden aria-live="polite"><span class="transaction-status-copy"></span> <a href="/transactions" title="Transaction history">history</a></span><button type="button" data-action="refresh">Refresh</button></footer>
     </main>
 
     <dialog id="editor-dialog" class="editor-dialog">

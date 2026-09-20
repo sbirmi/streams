@@ -37,6 +37,8 @@ Requirement status is **proposed** unless stated otherwise.
 - **R29 — Shared favorites dashboard:** A user can mark any stream as a favorite and view all favorite streams on a separate flat dashboard, with open streams first, closed/resolved streams afterward, and each group ordered by most recent update. Favorite rows show hierarchy breadcrumbs and can open the corresponding rooted hierarchy view.
 - **R32 — Transaction undo/redo:** A mutating operation, including an atomic bulk operation, is recorded as one transaction with enough before/after information to support revision-checked undo and redo. Undo and redo are shared workspace operations, and undoing another user’s transaction remains visible in history.
 - **R33 — Transaction navigation:** A successful undo or redo returns enough affected-object context for the client to restore the relevant rooted view and focus the affected stream or comment when possible.
+- **R34 — Transaction explorer:** A user can open a read-only `/transactions` page to search and inspect transaction metadata, undo/redo relationships, and retained abandoned branches.
+- **R35 — History position awareness:** The primary view shows whether the shared data is at the current transaction head or at an older logical history position, including the relevant transaction actor and timestamp.
 
 ## Non-functional
 
