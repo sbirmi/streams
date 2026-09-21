@@ -23,7 +23,8 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertIn(b"<title>streams: Index</title>", response.data)
         self.assertIn(b"Test Stream", response.data)
         self.assertIn(b"Loading streams", response.data)
-        self.assertIn(b'data-action="copy-link"', response.data)
+        self.assertIn(b">Dashboard</button>", response.data)
+        self.assertNotIn(b'data-action="copy-link"', response.data)
         self.assertIn(b'value="manual">Manual order', response.data)
 
     def test_health_endpoint_returns_ok_and_request_id(self) -> None:
