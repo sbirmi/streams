@@ -32,10 +32,17 @@
 
     <dialog id="editor-dialog" class="editor-dialog">
       <form id="editor-form" method="dialog">
-        <div class="dialog-heading"><h2 id="editor-title">Edit stream</h2><button class="icon-button" type="button" data-action="close-editor" aria-label="Close">×</button></div>
+        <div class="dialog-heading"><h2 id="editor-title">Edit stream</h2><div class="dialog-heading-actions"><button class="secondary-button" type="button" id="editor-mode-toggle" data-action="toggle-editor-mode" hidden>Edit</button><button class="icon-button" type="button" data-action="close-editor" aria-label="Close">×</button></div></div>
         <p id="editor-placement" class="editor-placement"></p>
-        <label>Summary *<input id="editor-summary" name="summary" required></label>
-        <label>Description<textarea id="editor-description" name="description" rows="7"></textarea></label>
+        <section id="editor-rendered" class="content-preview" aria-label="Rendered stream content" hidden>
+          <div class="content-preview-toolbar"><span>Rendered</span><div class="copy-actions"><button class="secondary-button" type="button" data-copy-stream-id>Copy reference</button><button class="secondary-button" type="button" data-copy-stream-link>Copy link</button></div></div>
+          <h3 id="editor-rendered-summary" class="content-preview-summary"></h3>
+          <div id="editor-rendered-description" class="markdown-content"></div>
+        </section>
+        <div id="editor-fields" class="editor-fields">
+          <label>Summary *<input id="editor-summary" name="summary" required></label>
+          <label>Description<textarea id="editor-description" name="description" rows="7"></textarea></label>
+        </div>
         <div class="editor-metadata" role="group" aria-label="Stream metadata">
           <label class="editor-owners-field">Owners, comma-separated<input id="editor-owners" name="owners" type="text" autocomplete="off"></label>
           <label class="editor-priority-field">Priority<input id="editor-priority" name="priority" type="number" min="0" inputmode="numeric"></label>
@@ -48,13 +55,17 @@
           <label>Tags<input id="editor-tags" name="tags" type="text" autocomplete="off"></label>
         </div>
         <p id="editor-error" class="form-error" role="alert"></p>
-        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-editor">Cancel</button><button type="submit">Save</button></div>
+        <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-editor">Cancel</button><button id="editor-submit" type="submit">Save</button></div>
       </form>
     </dialog>
     <dialog id="comment-dialog" class="editor-dialog">
       <form id="comment-form" method="dialog">
-        <div class="dialog-heading"><h2 id="comment-title">Add comment</h2><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div>
-        <label for="comment-body">Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label>
+        <div class="dialog-heading"><h2 id="comment-title">Add comment</h2><div class="dialog-heading-actions"><button class="secondary-button" type="button" id="comment-mode-toggle" data-action="toggle-comment-mode" hidden>Edit</button><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div></div>
+        <section id="comment-rendered" class="content-preview" aria-label="Rendered comment" hidden>
+          <div class="content-preview-toolbar"><span>Rendered</span><div class="copy-actions"><button class="secondary-button" type="button" data-copy-comment-id>Copy reference</button><button class="secondary-button" type="button" data-copy-comment-link>Copy link</button></div></div>
+          <div id="comment-rendered-body" class="markdown-content"></div>
+        </section>
+        <div id="comment-fields" class="editor-fields"><label for="comment-body">Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label></div>
         <p id="comment-error" class="form-error" role="alert"></p>
         <div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-comment">Cancel</button><button id="comment-submit" type="submit">Add comment</button></div>
       </form>

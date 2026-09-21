@@ -4,7 +4,7 @@ from pathlib import Path
 
 from flask import Flask
 
-from .config import Settings
+from .config import Settings, load_references
 from .db import Database
 from .logging_config import configure_logging
 from .repositories import Repository
@@ -77,6 +77,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         ENVIRONMENT=app_settings.environment,
         DATABASE_PATH=app_settings.database_path,
         SHORTCUTS=load_shortcuts(app_settings.shortcuts_path),
+        REFERENCE_RULES=load_references(app_settings.references_path),
     )
     database = Database(app_settings.database_path)
     database.migrate()

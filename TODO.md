@@ -5,7 +5,7 @@ This is the active implementation queue. Keep near-term work at the top. When an
 ## Next three
 
 - [ ] **Review and settle the UI prototype.** Use `prototype/` to decide the primary hierarchy, density, controls, comment presentation, and mouse/keyboard interaction before building the production UI.
-- [ ] **Build the first vertical slice.** Implement the default priority view plus create/edit/comment flows, safe server-side Markdown rendering, and enough vanilla JS for expand/collapse and inline refresh without a frontend framework.
+- [ ] **Build the first vertical slice.** Implement the default priority view plus create/edit/comment flows, server-side sanitized Markdown rendering for descriptions/comments only, rendered-first body modals with edit toggles, copy-link/copy-ID affordances, and enough vanilla JS for expand/collapse and inline refresh without a frontend framework.
 - [ ] Add keyboard navigation and mouse actions for insertion, moving, and reordering.
 - [ ] Add alternate chronological and stale-open views.
 - [ ] Persist view, filter, and other remaining UI preferences in browser storage/cookies where useful.
@@ -14,7 +14,7 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 - [ ] Build the searchable `/transactions` history explorer with retained abandoned branches.
 - [ ] Add lightweight edit presence/soft-lock indicators.
-- [ ] Add configurable external-reference recognition and scoped plugin rendering styles.
+- [ ] Add declarative built-in stream/comment references and configurable external-reference recognition; define collision behavior and scoped plugin rendering styles.
 - [ ] Add backup/restore commands and deployment packaging.
 
 ## Completed

@@ -69,6 +69,21 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(conflict_response.status_code, 409)
         self.assertEqual(conflict_response.json["current"]["summary"], "Ship release")
 
+    def test_api_returns_rendered_body_without_changing_raw_markdown(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams",
+            json={"summary": "**Plain summary**", "description": "**Body** <https://example.test>", "actor": "alice"},
+        ).json["stream"]
+        self.assertEqual(stream["summary"], "**Plain summary**")
+        self.assertNotIn("summary_html", stream)
+        self.assertIn("<strong>Body</strong>", stream["description_html"])
+        comment = self.client.post(
+            f"/api/streams/{stream['id']}/comments", json={"body": "*Comment*", "actor": "alice"}
+        ).json["comment"]
+        self.assertEqual(comment["body"], "*Comment*")
+        self.assertIn("<em>Comment</em>", comment["body_html"])
+
     def test_stream_api_updates_favorite_with_revision_check(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         stream = self.client.post(

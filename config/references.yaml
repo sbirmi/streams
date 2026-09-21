@@ -1,0 +1,8 @@
+# Deployment-controlled reference rules. Values use the small config loader in app.config.
+# Built-in Stream:<id> and Comment:<id> rules are always enabled.
+references:
+  - name: foo
+    pattern: "\\bFoo([0-9]+)\\b"
+    url: "https://foo.example.test/task/{1}"
+    display: "Foo{1}"
+    case_sensitive: false

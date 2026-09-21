@@ -11,7 +11,9 @@ The service must not be described or configured as public-internet safe without 
 - Validate and bound all request fields, including note and comment sizes.
 - Render user content safely; prevent stored and reflected script injection.
 - Treat Markdown as untrusted input and sanitize rendered HTML; do not allow arbitrary raw HTML or unsafe URL schemes by default.
-- Treat configurable external-reference rules as trusted application configuration, not user-authored content; validate generated URLs and avoid shell/template execution.
+- Treat configurable external-reference rules as trusted application configuration, not user-authored content; validate generated URLs and avoid shell/template execution. Rules must be declarative, bounded, deterministic, and unable to emit arbitrary executable markup.
+- Run reference substitutions only in visible text nodes, excluding existing links, inline code, and code blocks. Re-sanitize or independently validate generated links after substitution.
+- Stable internal links must use server-generated stream/comment URLs or IDs; copy affordances must not expose unsanitized markup or attacker-controlled destinations.
 - Scope plugin CSS and markup so a plugin cannot unexpectedly restyle or interfere with the core interface; review plugin assets as code/dependencies.
 - Use parameterized datastore operations and avoid shell evaluation of user input.
 - Protect state-changing requests against cross-site request forgery if browser cookies are used.

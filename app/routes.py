@@ -10,11 +10,36 @@ from typing import Any
 from flask import Flask, Response, current_app, jsonify, render_template, request, g
 
 from .repositories import NotFound, Repository, RevisionConflict
+from .markdown_renderer import MarkdownRenderer
 
 
 def register_routes(app: Flask) -> None:
     def repository() -> Repository:
         return current_app.extensions["repository"]
+
+    def renderer() -> MarkdownRenderer:
+        repo = repository()
+        def stream_exists(identifier: str) -> bool:
+            try:
+                repo.get_stream(identifier)
+                return True
+            except NotFound:
+                return False
+        def comment_exists(identifier: str) -> bool:
+            try:
+                repo.get_comment(identifier)
+                return True
+            except NotFound:
+                return False
+        return MarkdownRenderer(current_app.config["REFERENCE_RULES"], stream_exists, comment_exists)
+
+    def present_stream(stream: dict[str, Any]) -> dict[str, Any]:
+        stream["description_html"] = renderer().render(stream.get("description") or "")
+        return stream
+
+    def present_comment(comment: dict[str, Any]) -> dict[str, Any]:
+        comment["body_html"] = renderer().render(comment.get("body") or "")
+        return comment
 
     def payload() -> dict[str, Any]:
         value = request.get_json(silent=True)
@@ -171,7 +196,8 @@ def register_routes(app: Flask) -> None:
         include_closed = request.args.get("include_closed", "true").lower() not in {"0", "false", "no"}
         streams = repository().list_streams(bundle_id, include_closed=include_closed)
         for stream in streams:
-            stream["comments"] = repository().list_comments(stream["id"])
+            present_stream(stream)
+            stream["comments"] = [present_comment(comment) for comment in repository().list_comments(stream["id"])]
         return jsonify(streams=streams)
 
     @app.post("/api/bundles/<bundle_id>/streams")
@@ -189,12 +215,13 @@ def register_routes(app: Flask) -> None:
             anchor_stream_id=data.get("anchor_stream_id"), placement=data.get("placement"),
             root_stream_id=data.get("root_stream_id"),
         )
-        return jsonify(stream=result), 201
+        return jsonify(stream=present_stream(result)), 201
 
     @app.get("/api/streams/<stream_id>")
     def get_stream(stream_id: str) -> Response:
         stream = repository().get_stream(stream_id)
-        stream["comments"] = repository().list_comments(stream_id)
+        present_stream(stream)
+        stream["comments"] = [present_comment(comment) for comment in repository().list_comments(stream_id)]
         return jsonify(stream=stream)
 
     @app.post("/api/streams/move")
@@ -221,9 +248,9 @@ def register_routes(app: Flask) -> None:
         changes = data.get("changes")
         if not isinstance(changes, dict):
             raise ValueError("changes must be an object")
-        return jsonify(stream=repository().update_stream(
+        return jsonify(stream=present_stream(repository().update_stream(
             stream_id, expected_revision, actor(data), changes
-        ))
+        )))
 
     @app.post("/api/streams/status")
     def update_stream_statuses() -> Response:
@@ -264,7 +291,7 @@ def register_routes(app: Flask) -> None:
     @app.get("/api/streams/<stream_id>/comments")
     def list_comments(stream_id: str) -> Response:
         repository().get_stream(stream_id)
-        return jsonify(comments=repository().list_comments(stream_id))
+        return jsonify(comments=[present_comment(comment) for comment in repository().list_comments(stream_id)])
 
     @app.post("/api/streams/<stream_id>/comments")
     def add_comment(stream_id: str) -> tuple[Response, int]:
@@ -276,7 +303,7 @@ def register_routes(app: Flask) -> None:
             stream_id, body, actor(data), comment_id=data.get("id"),
             sticky_note=data.get("sticky_note", False),
         )
-        return jsonify(comment=result), 201
+        return jsonify(comment=present_comment(result)), 201
 
     @app.patch("/api/comments/<comment_id>")
     def update_comment(comment_id: str) -> Response:
@@ -285,10 +312,10 @@ def register_routes(app: Flask) -> None:
         body = data.get("body")
         if not isinstance(expected_revision, int) or not isinstance(body, str):
             raise ValueError("revision and body are required")
-        return jsonify(comment=repository().update_comment(
+        return jsonify(comment=present_comment(repository().update_comment(
             comment_id, expected_revision, actor(data), body,
             sticky_note=data.get("sticky_note"),
-        ))
+        )))
 
     @app.delete("/api/comments/<comment_id>")
     def delete_comment(comment_id: str) -> Response:

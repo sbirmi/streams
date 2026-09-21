@@ -30,7 +30,9 @@ The primary view is a compact hierarchy: a topic contains streams/issues, and ea
 
 The application can contain many independent bundles of streams: for example, todos, recipes, side projects, or any other collection of related thoughts. These are use cases of the same generic structure, not separate first-class features or schemas.
 
-The interface should support Markdown in descriptions, summaries, and comments, rendered safely.
+Descriptions and comments support Markdown and render safely. Stream summaries remain plain text so compact hierarchy labels, rows, and breadcrumbs do not become rich content.
+
+Rendered descriptions and comments may contain ordinary hyperlinks and built-in or configured reference links. The application provides copy-link/copy-ID affordances for streams and comments so users can insert stable references into other items.
 
 ## Lightweight attribution
 

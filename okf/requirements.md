@@ -17,11 +17,14 @@ Requirement status is **proposed** unless stated otherwise.
 - **R11 — Alternate views:** The system can support saved or shareable views ordered/filtered by priority and deadline, last update, and staleness.
 - **R12 — Comment window:** A view can show one, two, or N recent comments per stream, with an action to reveal more.
 - **R13 — Keyboard operation:** Navigation and common actions—add, edit, move, change status, expand/collapse, and show more—have keyboard shortcuts.
-- **R14 — Markdown:** Descriptions, summaries, and comments accept Markdown and render it safely.
+- **R14 — Markdown bodies:** Descriptions and comments accept Markdown and render it safely. Stream summaries remain plain text.
 - **R15 — Shareable locations:** Users can link directly to a stream or to a specific ordering/filter/view state.
 - **R16 — History:** Changes retain enough before/after information to support audit and targeted manual recovery.
 - **R17 — External references:** Configured reference patterns can turn identifiers such as `BUG123` into safe links and rendered references.
 - **R26 — Stream references:** Descriptions and comments can reference streams with a stable notation such as `@Stream:<number>`; rendered references expose the target stream and its current status, with future actions such as close/reopen subject to normal edit and conflict handling.
+- **R37 — Body rendering and links:** Existing descriptions and comments open in a rendered, full-content modal view with an edit toggle that exposes the original Markdown source. Markdown links and recognized bare/angle-bracket URLs are clickable; rendering is server-side and sanitized.
+- **R38 — Stable reference affordances:** Stream summaries and comments expose copy-link and copy-reference actions. Copied values use stable identifiers/URLs suitable for inserting into descriptions and comments; reference copies include the `Stream:` or `Comment:` type prefix.
+- **R39 — Declarative reference plugins:** Deployment-controlled declarative rules can recognize built-in stream/comment references and configured external identifiers, turning them into safe links without arbitrary user-authored or plugin-generated executable markup.
 - **R18 — Edit awareness:** The UI indicates when another user is editing a stream or comment, while still allowing independent objects to be edited concurrently.
 - **R24 — Lightweight attribution:** A user can provide an unvalidated display username at the root level, which is used as the default creator/commenter attribution and can be selected as an owner.
 - **R25 — Separate roles:** The data distinguishes creator from owner/assignee; creating an item does not automatically make the creator its owner in all cases.

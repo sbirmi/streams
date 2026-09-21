@@ -5,9 +5,8 @@ These are intentionally unresolved and should be answered as implementation and 
 - Which language, web framework, and datastore best fit the small-dependency requirement?
 - Should the first backend use Flask or an even thinner WSGI/ASGI layer?
 - Which Markdown parser and sanitizer combination gives the smallest acceptable reviewed dependency surface?
-- Should Markdown be rendered at write time, read time, or cached with an invalidation strategy?
-- What is the minimal plugin contract for declaring rendering markup, style names, and scoped CSS?
-- Should the note body be plain text, Markdown, or another restricted format?
+- Should rendered Markdown be rendered on every read or cached with an invalidation strategy, while retaining raw source as canonical?
+- What exact comment-reference notation should complement `Stream:<ID>` (for example `Comment:<ID>` or `@Comment:<ID>`), and should copied IDs include a type prefix?
 - What is the exact minimal primary UI layout and which fields appear collapsed versus expanded?
 - Which keyboard shortcuts are defaults, and can users customize them?
 - Which insertion/move controls are always visible, and which belong in context menus?
@@ -34,4 +33,6 @@ These are intentionally unresolved and should be answered as implementation and 
 - What minimum observability is needed: request logs, change history, metrics, or all three?
 - Which external-reference patterns and URL templates should be supported first?
 - Should reference matching be case-sensitive, and how are ambiguous/malformed matches handled?
+- What exact declarative plugin schema, rule ordering, collision behavior, host allowlist, and URL-encoding rules should apply to external patterns?
+- Should copy-link open a rooted stream view, focus a comment, or use a single canonical object URL for each object type?
 - When should authentication and authorization become mandatory?

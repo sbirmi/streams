@@ -41,7 +41,7 @@ The first screen under review is intentionally narrow in scope:
 - The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.
 - Priority is the first tag and is styled like a tag with a distinct color.
 - Owners and tags use smaller text.
-- Markdown-capable fields look like plain rendered text when idle and become text-like editable surfaces only while editing.
+- Descriptions and comments show rendered Markdown when idle; summaries remain plain text. Existing description/comment modals open in rendered mode with a clear Edit toggle that switches to the original Markdown source. New body content opens in Edit mode. Saving returns to rendered content or closes according to the existing modal flow.
 - Add-stream controls and reordering controls are deliberately not shown in this prototype.
 - Stream IDs are shown as small numeric chips between the status control and summary. Descriptions and comments can refer to another stream with `@Stream:<number>`; the notation renders as a compact reference chip that reflects whether the referenced stream is open or resolved.
 - Reference chips are intended to become actionable: from a chip, a user should be able to inspect the referenced stream and apply status actions such as resolve or reopen, subject to the normal edit/conflict rules.
@@ -61,7 +61,7 @@ The first screen under review is intentionally narrow in scope:
 - Moving uses keyboard move mode: `m` picks up the focused stream, `v` selects/extends a contiguous sibling block, and a second `v` stops extending the selection. Press `m` to pick up the highlighted block, navigate to a destination, and use `p`/`n`/`c` to place it before/after/as a child of that destination. `u` promotes one level by placing the selection after its current parent. The HUD names each valid key and action, including the selection count and current target. Moves use manual hierarchy/order and may not visibly change a priority- or recent-sorted view.
 - Favorites are shared stream properties and have a separate `/dashboard` destination rather than a tree-view dropdown option. The dashboard keeps the header and view bar, replaces the tree view selector with a favorite count, and renders a flat list with open favorites first, then closed/resolved favorites, newest updated first within each group. Each row shows clickable hierarchy breadcrumbs, owners, and a star button that removes the favorite.
 - The URL carries shareable navigation state only. Personal presentation state such as expansion/collapse, local focus restoration, and comment-rail position is persisted client-side per bundle/root context, independently of sort mode, with explicit URL parameters taking precedence. Restoring a focused stream or comment expands only the ancestor chain required to make it visible.
-- The canonical current rooted-view URL remains shareable from the browser address bar. Browser history updates preserve the URL as navigation state without requiring a full page reload; there is no separate Copy link control.
+- The canonical current rooted-view URL remains shareable from the browser address bar. Browser history updates preserve the URL as navigation state without requiring a full page reload. Stream summaries and comments also expose Copy link and Copy reference affordances; copied references include `Stream:` or `Comment:` and copying must not clear ordinary text selection.
 - A future multi-key command indicator should float across the lower edge of the fixed viewbar, half over the viewbar and half over the list. It should not reserve layout space or move rows, and should disappear when the command completes or is cancelled.
 - Transaction undo/redo should show the original transaction actor and timestamp as well as the actor and time of the undo/redo action. The indicator links to `/transactions`. The transactions page is a separate, searchable, read-only destination and exposes retained abandoned branches. Simple mutations show changed fields inline, using before/after values such as `Name: Foo → Bar` and `Deadline: 2026-09-20 → 2026-09-25`; bookkeeping fields such as revisions and timestamps are omitted.
 - The viewbar statistics area shows the open-stream count and a compact logical history position. At the current head it reads `Last change: NAME · YYYY-MM-DD HH:MM`; after undoing it reads `History: before NAME · YYYY-MM-DD HH:MM` with the older-state treatment. The position links to the relevant transaction history when possible. It must use transaction metadata, not object `updated_at`, because undo/redo writes create new object revisions.
@@ -145,7 +145,7 @@ Exact keys, discoverability, focus behavior, and customization remain open. Shor
 
 ## Rendering and feedback
 
-- Render Markdown for summaries, descriptions, and comments with safe links and sanitized output.
+- Render descriptions and comments as server-generated, sanitized Markdown HTML with safe ordinary links and declarative internal/external references. Escape summaries as plain text.
 - Make save state, conflict state, and another-user editing indicators visible but unobtrusive.
 - Keep optimistic UI behavior reversible and reconcile it with the server response.
 - Keep mouse targets compact but discoverable, including add-before/add-after/add-child and move controls.
