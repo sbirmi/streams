@@ -37,7 +37,7 @@
         <section id="editor-rendered" class="content-preview" aria-label="Rendered stream content" hidden>
           <div class="content-preview-toolbar"><span>Rendered</span><div class="copy-actions"><button class="secondary-button" type="button" data-copy-stream-id>Copy reference</button><button class="secondary-button" type="button" data-copy-stream-link>Copy link</button></div></div>
           <h3 id="editor-rendered-summary" class="content-preview-summary"></h3>
-          <div id="editor-rendered-description" class="markdown-content"></div>
+          <div id="editor-rendered-description" class="markdown-content markdown-content--description"></div>
         </section>
         <div id="editor-fields" class="editor-fields">
           <label>Summary *<input id="editor-summary" name="summary" required></label>
@@ -63,7 +63,7 @@
         <div class="dialog-heading"><h2 id="comment-title">Add comment</h2><div class="dialog-heading-actions"><button class="secondary-button" type="button" id="comment-mode-toggle" data-action="toggle-comment-mode" hidden>Edit</button><button class="icon-button" type="button" data-action="close-comment" aria-label="Close">×</button></div></div>
         <section id="comment-rendered" class="content-preview" aria-label="Rendered comment" hidden>
           <div class="content-preview-toolbar"><span>Rendered</span><div class="copy-actions"><button class="secondary-button" type="button" data-copy-comment-id>Copy reference</button><button class="secondary-button" type="button" data-copy-comment-link>Copy link</button></div></div>
-          <div id="comment-rendered-body" class="markdown-content"></div>
+          <div id="comment-rendered-body" class="markdown-content markdown-content--comment"></div>
         </section>
         <div id="comment-fields" class="editor-fields"><label for="comment-body">Comment<textarea id="comment-body" name="body" rows="7" required></textarea></label></div>
         <p id="comment-error" class="form-error" role="alert"></p>
