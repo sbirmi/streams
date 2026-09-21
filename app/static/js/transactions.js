@@ -27,6 +27,26 @@
     return `${verb} ${transaction.target_transaction_id}`;
   }
 
+  const fieldLabels = { summary: "Name", description: "Description", body: "Comment", owners: "Owners", priority: "Priority", deadline: "Deadline", snooze_until: "Snooze until", tags: "Tags", status: "Status", favorite: "Favorite", parent_stream_id: "Parent" };
+  function changeValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return String(value).replace(/\s+/g, " ").trim();
+  }
+  function changeText(change, includeObject = false) {
+    const label = fieldLabels[change.field] || change.field;
+    const prefix = includeObject ? `${change.object_type} ${String(change.object_id).slice(0, 8)}: ` : "";
+    return `${prefix}${label}: ${changeValue(change.before)} → ${changeValue(change.after)}`;
+  }
+  function transactionChanges(transaction, includeObject = false) {
+    return (transaction.changes || []).map((change) => changeText(change, includeObject));
+  }
+  function renderChanges(transaction) {
+    const changes = transactionChanges(transaction, (transaction.changes || []).some((change, index, all) => index > 0 && change.object_id !== all[0].object_id));
+    return changes.length ? `<div class="transaction-changes">${changes.map((change) => `<span>${escapeHtml(change)}</span>`).join("")}</div>` : "";
+  }
+
   function render() {
     const needle = query.value.trim().toLowerCase();
     const visible = transactions.filter((transaction) => {
@@ -46,6 +66,7 @@
         <div class="transaction-main">
           <div class="transaction-title-line"><span class="transaction-kind kind-${escapeHtml(transaction.kind)}">${escapeHtml(transaction.kind)}</span><strong>${escapeHtml(transaction.summary || transaction.action_type)}</strong>${abandoned ? '<span class="transaction-branch-label">abandoned branch</span>' : ""}</div>
           <div class="transaction-meta"><span>${escapeHtml(transaction.actor)}</span><time datetime="${escapeHtml(transaction.created_at)}">${escapeHtml(dateLabel(transaction.created_at))}</time><span class="transaction-id">${escapeHtml(transaction.id)}</span></div>
+          ${renderChanges(transaction)}
         </div>
         <div class="transaction-state state-${escapeHtml(transaction.state)}">${escapeHtml(transaction.state)}</div>
         ${relation ? `<div class="transaction-relation">${escapeHtml(relation)}</div>` : ""}
@@ -62,7 +83,8 @@
       if (!response.ok) throw new Error(`Unable to load details (${response.status})`);
       const transaction = (await response.json()).transaction;
       const objects = (transaction.related_objects || []).map((item) => `<li>${escapeHtml(item.object_type)} ${escapeHtml(item.object_id)}${item.summary ? ` · ${escapeHtml(item.summary)}` : ""}</li>`).join("");
-      detail.innerHTML = `<strong>${escapeHtml(transaction.summary)}</strong><span>${escapeHtml(transaction.actor)} · ${escapeHtml(dateLabel(transaction.created_at))}</span><ul>${objects || "<li>No object details</li>"}</ul>`;
+      const changes = transactionChanges(transaction, true).map((change) => `<li>${escapeHtml(change)}</li>`).join("");
+      detail.innerHTML = `<strong>${escapeHtml(transaction.summary)}</strong><span>${escapeHtml(transaction.actor)} · ${escapeHtml(dateLabel(transaction.created_at))}</span><ul>${changes || objects || "<li>No object details</li>"}</ul>`;
       detail.scrollIntoView({ block: "nearest" });
     } catch (error) {
       detail.textContent = error.message;

@@ -626,7 +626,37 @@ class Repository:
             rows = connection.execute(
                 "SELECT * FROM transactions" + where + " ORDER BY rowid DESC LIMIT ?", parameters
             ).fetchall()
-        return [dict(row) for row in rows]
+            transactions = [dict(row) for row in rows]
+            if not transactions:
+                return []
+            transaction_ids = [item["id"] for item in transactions]
+            placeholders = ",".join("?" for _ in transaction_ids)
+            history_rows = connection.execute(
+                f"SELECT transaction_id, object_type, object_id, changed_fields, before_value, after_value "
+                f"FROM history WHERE transaction_id IN ({placeholders}) ORDER BY sequence, rowid",
+                transaction_ids,
+            ).fetchall()
+
+        changes_by_transaction: dict[str, list[dict[str, Any]]] = {item["id"]: [] for item in transactions}
+        hidden_fields = {"revision", "updated_at", "created_at", "closed_at"}
+        for row in history_rows:
+            before = json.loads(row["before_value"]) if row["before_value"] else None
+            after = json.loads(row["after_value"]) if row["after_value"] else None
+            for field in json.loads(row["changed_fields"]):
+                if field in hidden_fields:
+                    continue
+                snapshot = after or before or {}
+                changes_by_transaction[row["transaction_id"]].append({
+                    "object_type": row["object_type"],
+                    "object_id": row["object_id"],
+                    "object_summary": snapshot.get("summary") or snapshot.get("body"),
+                    "field": field,
+                    "before": (before or {}).get(field),
+                    "after": (after or {}).get(field),
+                })
+        for transaction in transactions:
+            transaction["changes"] = changes_by_transaction[transaction["id"]]
+        return transactions
 
     def get_transaction(self, transaction_id: str) -> dict[str, Any]:
         with self.database.read() as connection:
@@ -649,6 +679,24 @@ class Repository:
                 item["after_value"] = json.loads(item["after_value"]) if item["after_value"] else None
                 history.append(item)
 
+            hidden_fields = {"revision", "updated_at", "created_at", "closed_at"}
+            changes = []
+            for item in history:
+                before = item["before_value"] or {}
+                after = item["after_value"] or {}
+                snapshot = after or before
+                for field in item["changed_fields"]:
+                    if field in hidden_fields:
+                        continue
+                    changes.append({
+                        "object_type": item["object_type"],
+                        "object_id": item["object_id"],
+                        "object_summary": snapshot.get("summary") or snapshot.get("body"),
+                        "field": field,
+                        "before": before.get(field),
+                        "after": after.get(field),
+                    })
+
             related_objects = []
             for item in history:
                 snapshot = item["after_value"] or item["before_value"] or {}
@@ -660,6 +708,7 @@ class Repository:
                     "current_revision": snapshot.get("revision"),
                 })
             transaction["history"] = history
+            transaction["changes"] = changes
             transaction["related_objects"] = related_objects
             return transaction
 

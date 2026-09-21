@@ -35,6 +35,22 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(self.repository.redo_latest("carol")["kind"], "redo")
         self.assertEqual(self.repository.get_stream(stream["id"])["summary"], changed["summary"])
 
+    def test_transaction_list_exposes_simple_field_changes(self) -> None:
+        bundle = self.repository.create_bundle("Todos", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice", deadline="2026-09-20")
+        self.repository.update_stream(
+            stream["id"], stream["revision"], "bob", {"summary": "Ship release", "deadline": "2026-09-25"}
+        )
+
+        transaction = self.repository.list_transactions()[0]
+        changes = {(item["field"], item["before"], item["after"]) for item in transaction["changes"]}
+        self.assertEqual(changes, {
+            ("summary", "Prepare release", "Ship release"),
+            ("deadline", "2026-09-20", "2026-09-25"),
+        })
+        detail = self.repository.get_transaction(transaction["id"])
+        self.assertEqual(detail["changes"], transaction["changes"])
+
     def test_undo_can_continue_after_redo(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
