@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const validViews = new Set(["priority", "recent", "manual", "stale"]);
+  const validViews = new Set(["priority", "recent", "manual", "stale", "deadline"]);
   const dashboardMode = window.location.pathname === "/dashboard";
   const urlState = { hasRoot: false, hasView: false, hasFocus: false, root: null, view: null, focus: null };
   function readUrlState(url = new URL(window.location.href)) {
@@ -172,6 +172,33 @@
     while (current && !seen.has(current.id)) { path.unshift(current); seen.add(current.id); current = selectedStreamById(current.parent_stream_id); }
     return path;
   }
+  function localToday() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; }
+  function dayNumber(value) { const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/); return match ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000 : null; }
+  function deadlineDistance(stream) { const deadline = dayNumber(stream.deadline); const today = dayNumber(localToday()); return deadline == null || today == null ? null : deadline - today; }
+  function deadlineBucket(stream) {
+    const distance = deadlineDistance(stream);
+    if (distance == null) return { key: "none", label: "NO DEADLINE", order: Number.MAX_SAFE_INTEGER };
+    if (distance < 0) return { key: "overdue", label: "OVERDUE", order: 0 };
+    if (distance === 0) return { key: "today", label: "TODAY", order: 1 };
+    if (distance < 7) return { key: "near", label: "NEXT 6 DAYS", order: 2 };
+    const start = Math.floor((distance - 7) / 7) * 7 + 7;
+    return { key: `future-${start}`, label: `NEXT 7 DAYS · +${start}–${start + 6}`, order: 3 + Math.floor((start - 7) / 7) };
+  }
+  function relativeBreadcrumbs(stream) {
+    const path = streamPath(stream);
+    const rootIndex = currentRootId() ? path.findIndex((item) => item.id === currentRootId()) : -1;
+    return (rootIndex >= 0 ? path.slice(rootIndex + 1) : path).filter((item) => item.id !== stream.id);
+  }
+  function deadlineLocation(stream) {
+    const items = relativeBreadcrumbs(stream);
+    return items.length ? items.map((item, index) => `<button class="deadline-breadcrumb" type="button" data-deadline-root="${escapeHtml(item.id)}">${escapeHtml(item.summary)}${index < items.length - 1 ? " /" : ""}</button>`).join(" ") : "—";
+  }
+  function deadlineSort(a, b) {
+    const aBucket = deadlineBucket(a); const bBucket = deadlineBucket(b);
+    const ad = dayNumber(a.deadline); const bd = dayNumber(b.deadline);
+    return aBucket.order - bBucket.order || (ad == null ? Number.MAX_SAFE_INTEGER : ad) - (bd == null ? Number.MAX_SAFE_INTEGER : bd) || (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
+  }
+  function deadlineItems() { return currentRootItems().filter((stream) => !isClosed(stream) && searchMatches(stream)).sort(deadlineSort); }
   function ordered(items) {
     return [...items].sort((a, b) => {
       if (state.view === "recent") return b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
@@ -182,17 +209,20 @@
       return Number(isClosed(a)) - Number(isClosed(b)) || aPriority - bPriority || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
     });
   }
-  function visibleItems() {
+  function searchMatches(stream) {
     const query = state.query.toLowerCase();
-    return currentRootItems().filter((stream) => !query || [stream.summary, stream.description, ...(stream.tags || []), ...(stream.owners || [])].some((value) => String(value).toLowerCase().includes(query)));
+    return !query || [stream.summary, stream.description, ...(stream.tags || []), ...(stream.owners || [])].some((value) => String(value).toLowerCase().includes(query));
   }
+  function visibleItems() { return currentRootItems().filter(searchMatches); }
   function navigationItems() {
+    if (state.view === "deadline") return deadlineItems();
     const items = visibleItems(); const result = [];
     function visit(stream) { result.push(stream); if (stream.expanded !== false) ordered(childrenOf(stream.id, items)).forEach(visit); }
     const rootId = currentRootId();
     ordered(rootId ? items.filter((stream) => stream.id === rootId) : items.filter((stream) => !stream.parent_stream_id)).forEach(visit); return result;
   }
   function navigationEntries() {
+    if (state.view === "deadline") return deadlineItems().map((stream) => ({ stream, depth: 0 }));
     const items = visibleItems(); const result = [];
     function visit(stream, depth) { result.push({ stream, depth }); if (stream.expanded !== false) ordered(childrenOf(stream.id, items)).forEach((child) => visit(child, depth + 1)); }
     const rootId = currentRootId();
@@ -217,8 +247,30 @@
     const status = stream.status || (stream.closed_at ? "resolved" : "open");
     return `<article class="stream-row ${closed ? "is-closed" : ""} ${status === "no_action" ? "is-no-action" : ""} ${state.selected === stream.id ? "is-selected" : ""} ${state.selectedIds.includes(stream.id) ? "is-move-selected" : ""} ${state.moveMode?.targetId === stream.id ? "is-move-target" : ""}" style="--depth:${depth}" data-id="${stream.id}" tabindex="-1"><div class="stream-gutter"><button class="disclosure ${children.length ? "" : "is-empty"}" type="button" data-toggle="${stream.id}" aria-label="${stream.expanded !== false ? "Collapse" : "Expand"}">${stream.expanded !== false ? "⌄" : "›"}</button><span class="status-control-wrap"><button class="status-box" type="button" data-status-toggle="${stream.id}" aria-label="Status: ${statusLabel(status)}" title="Change status">${statusIcon(status)}</button>${renderStatusMenu(stream)}</span></div><div class="stream-main"><div class="stream-content"><div class="stream-title-line"><span class="stream-id" title="Stream ${escapeHtml(stream.id)}">${escapeHtml(stream.id.slice(0, 6))}</span><button class="favorite-toggle" type="button" data-favorite-toggle="${stream.id}" aria-label="${stream.favorite ? "Remove" : "Add"} ${escapeHtml(stream.summary)} ${stream.favorite ? "from" : "to"} favorites" title="${stream.favorite ? "Remove from" : "Add to"} favorites">${stream.favorite ? "★" : "☆"}</button><span class="stream-title">${markdown(stream.summary)}</span><button class="stream-move" type="button" data-move="${stream.id}" aria-label="Move stream" title="Move stream">↕</button><button class="stream-edit" type="button" data-edit="${stream.id}" aria-label="Edit stream" title="Edit stream">✎</button><button class="stream-delete" type="button" data-delete="${stream.id}" aria-label="Delete stream" title="Delete stream">⌫</button></div><div class="stream-meta"><span class="updated">${escapeHtml(stream.updated_at)}</span>${owners ? `<span class="owners" title="Owners: ${escapeHtml(owners)}">${escapeHtml(owners)}</span>` : ""}${deadline ? `<span class="deadline" title="Deadline">due ${escapeHtml(deadline)}</span>` : ""}<span class="status-label">${escapeHtml(statusLabel(status))}</span><span class="tag-list">${tags}</span><button class="comment-add" type="button" data-comment="${stream.id}" aria-label="Add comment">＋</button></div>${stream.description ? `<div class="stream-description">${markdown(stream.description)}</div>` : ""}</div>${comments ? `<div class="comment-rail" aria-label="Comments">${comments}</div>` : ""}</div></article>${childMarkup}`;
   }
+  function renderDeadlineRow(stream) {
+    const owners = (stream.owners || []).join(", ");
+    const tags = [...(stream.priority == null ? [] : [`<span class="tag priority-tag">#P${stream.priority}</span>`]), ...(stream.tags || []).map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`)].join("");
+    const distance = deadlineDistance(stream);
+    const overdue = distance != null && distance < 0;
+    const deadline = stream.deadline ? displayDeadline(stream.deadline) : "No deadline";
+    const deadlineLabel = distance === 0 ? "today" : overdue ? `${Math.abs(distance)}d overdue` : `due ${deadline}`;
+    return `<article class="stream-row deadline-row ${overdue ? "is-overdue" : ""} ${state.selected === stream.id ? "is-selected" : ""}" data-id="${escapeHtml(stream.id)}" tabindex="-1"><div class="stream-gutter"><span class="status-control-wrap"><button class="status-box" type="button" data-status-toggle="${escapeHtml(stream.id)}" aria-label="Status: Open" title="Change status">○</button>${renderStatusMenu(stream)}</span></div><div class="deadline-main"><div class="deadline-summary"><span class="stream-id" title="Stream ${escapeHtml(stream.id)}">${escapeHtml(stream.id.slice(0, 6))}</span><button class="favorite-toggle" type="button" data-favorite-toggle="${escapeHtml(stream.id)}" aria-label="${stream.favorite ? "Remove" : "Add"} ${escapeHtml(stream.summary)} ${stream.favorite ? "from" : "to"} favorites" title="${stream.favorite ? "Remove from" : "Add to"} favorites">${stream.favorite ? "★" : "☆"}</button><span class="stream-title">${markdown(stream.summary)}</span><button class="stream-move" type="button" data-move="${escapeHtml(stream.id)}" aria-label="Move stream" title="Move stream">↕</button><button class="stream-edit" type="button" data-edit="${escapeHtml(stream.id)}" aria-label="Edit stream" title="Edit stream">✎</button><button class="stream-delete" type="button" data-delete="${escapeHtml(stream.id)}" aria-label="Delete stream" title="Delete stream">⌫</button></div><div class="deadline-columns"><span class="deadline-location" title="Hierarchy">${deadlineLocation(stream)}</span><span class="owners" title="Owners">${escapeHtml(owners || "—")}</span><span class="deadline-date">${escapeHtml(deadline)} <small>(${escapeHtml(deadlineLabel)})</small></span><span class="updated">touched ${escapeHtml(displayDate(stream.updated_at))}</span><span class="tag-list">${tags}</span></div></div></article>`;
+  }
+  function renderDeadline() {
+    const streams = deadlineItems();
+    const groups = new Map();
+    streams.forEach((stream) => { const bucket = deadlineBucket(stream); if (!groups.has(bucket.key)) groups.set(bucket.key, { ...bucket, streams: [] }); groups.get(bucket.key).streams.push(stream); });
+    const markup = [...groups.values()].sort((a, b) => a.order - b.order).map((group, index) => {
+      const rows = group.streams.sort(deadlineSort).map(renderDeadlineRow).join("");
+      return `<section class="deadline-group" aria-labelledby="deadline-group-${escapeHtml(group.key)}">${index ? "<hr>" : ""}<h2 id="deadline-group-${escapeHtml(group.key)}">${escapeHtml(group.label)} <span>${group.streams.length}</span></h2>${rows}</section>`;
+    }).join("");
+    const noDeadline = streams.filter((stream) => !stream.deadline).length;
+    renderToolbarStats(`${streams.length} open stream${streams.length === 1 ? "" : "s"}${noDeadline ? ` · ${noDeadline} without deadline` : ""}`);
+    list.innerHTML = markup || '<div class="empty-filter">No open streams match this filter.</div>';
+  }
   function render() {
     if (state.dashboard) { renderDashboard(); return; }
+    if (state.view === "deadline") { renderDeadline(); return; }
     const items = visibleItems();
     const rootId = currentRootId();
     list.innerHTML = items.length ? (rootId ? renderStream(selectedStreamById(rootId), 0, items) : renderChildren(null, 0, items)) : (state.pendingInsert ? renderPlaceholder(0) : '<div class="empty-filter">No streams match this filter.</div>');
@@ -249,7 +301,7 @@
   function select(id, preserveComment = false) { state.selected = id; if (!preserveComment) { state.focusColumn = "stream"; state.commentIndex = 0; state.commentId = null; } render(); savePresentationAndUrl(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
   function openDashboard(historyMode = "push") { state.dashboard = true; state.rootPath = []; state.focusColumn = "stream"; state.commentId = null; const favorites = favoriteStreams(); state.selected = favorites.some((stream) => stream.id === state.selected) ? state.selected : favorites[0]?.id || null; window.history[`${historyMode}State`](null, "", `/dashboard${state.selected ? `?focus=stream:${encodeURIComponent(state.selected)}` : ""}`); readUrlState(); updateChrome(); updateRootLabel(); render(); }
   function openIndex(historyMode = "push") { state.dashboard = false; state.rootPath = []; state.focusColumn = "stream"; state.commentIndex = 0; state.commentId = null; window.history[`${historyMode}State`](null, "", "/?view=priority"); readUrlState(); state.view = "priority"; updateChrome(); applyUrlState(); updateRootLabel(); render(); }
-  function openRootedView(id, historyMode = "push") { state.dashboard = false; state.rootPath = [id]; state.selected = id; state.focusColumn = "stream"; state.commentIndex = 0; state.commentId = null; window.history[`${historyMode}State`](null, "", `/?root=${encodeURIComponent(id)}&view=manual&focus=stream:${encodeURIComponent(id)}`); readUrlState(); updateChrome(); applyUrlState(); updateRootLabel(); render(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
+  function openRootedView(id, historyMode = "push", view = "manual") { state.dashboard = false; state.rootPath = [id]; state.selected = id; state.view = validViews.has(view) ? view : "manual"; state.focusColumn = "stream"; state.commentIndex = 0; state.commentId = null; window.history[`${historyMode}State`](null, "", `/?root=${encodeURIComponent(id)}&view=${encodeURIComponent(state.view)}&focus=stream:${encodeURIComponent(id)}`); readUrlState(); updateChrome(); applyUrlState(); updateRootLabel(); render(); document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" }); }
   function updateSelection(targetId) { const entries = navigationEntries(); const anchor = entries.findIndex(({ stream }) => stream.id === state.selectionAnchor); const target = entries.findIndex(({ stream }) => stream.id === targetId); if (anchor < 0 || target < 0 || entries[anchor].stream.parent_stream_id !== entries[target].stream.parent_stream_id) { showCommandHud("Selection must remain contiguous siblings · [Esc] cancel"); return false; } const low = Math.min(anchor, target); const high = Math.max(anchor, target); state.selectedIds = entries.slice(low, high + 1).map(({ stream }) => stream.id); return true; }
   function moveVertical(direction) { const items = navigationItems(); const index = items.findIndex((stream) => stream.id === state.selected); const target = items[Math.max(0, Math.min(items.length - 1, index + direction))]; if (target) { const preserve = state.focusColumn === "comments" && (target.comments || []).length; state.commentIndex = preserve ? Math.min(state.commentIndex, target.comments.length - 1) : 0; state.commentId = preserve ? target.comments[state.commentIndex]?.id || null : null; state.selected = target.id; if (state.selecting) updateSelection(target.id); else if (!state.selectionReady) { state.selectedIds = []; select(target.id, Boolean(preserve)); } if (state.moveMode) state.moveMode.targetId = target.id; render(); savePresentationAndUrl(); } }
   function moveSibling(direction) { const entries = navigationEntries(); const index = entries.findIndex(({ stream }) => stream.id === state.selected); if (index < 0) return; const depth = entries[index].depth; let target = null; for (let cursor = index + direction; cursor >= 0 && cursor < entries.length; cursor += direction) { if (entries[cursor].depth === depth) { target = entries[cursor].stream; break; } } if (!target) { for (let cursor = index + direction; cursor >= 0 && cursor < entries.length; cursor += direction) { if (entries[cursor].depth < depth) { target = entries[cursor].stream; break; } } } if (!target) return; state.selected = target.id; if (state.selecting) updateSelection(target.id); else if (!state.selectionReady) { state.selectedIds = []; select(target.id); } if (state.moveMode) state.moveMode.targetId = target.id; }
@@ -476,6 +528,7 @@
   async function load() { try { const shortcutBody = await api("/api/shortcuts"); state.shortcuts = shortcutBody.shortcuts; renderShortcutHelp(); const body = await api("/api/bundles"); state.bundle = body.bundles[0] || null; document.querySelector("#view-select").value = state.view; updateChrome(); updateRootLabel(); await loadStreams(); } catch (error) { list.innerHTML = `<div class="empty-filter">${escapeHtml(error.message)}</div>`; } }
 
   list.addEventListener("click", (event) => { if (state.dashboard) { const unfavoriteButton = event.target.closest("[data-unfavorite]"); if (unfavoriteButton) { event.stopPropagation(); setFavorite(unfavoriteButton.dataset.unfavorite, false); return; } const breadcrumb = event.target.closest("[data-dashboard-root]"); if (breadcrumb) { openRootedView(breadcrumb.dataset.dashboardRoot); return; } const dashboardOpen = event.target.closest("[data-dashboard-open]"); const dashboardRow = event.target.closest("[data-favorite-row]"); if (dashboardOpen || dashboardRow) { openRootedView((dashboardOpen || dashboardRow).dataset.dashboardOpen || dashboardRow.dataset.favoriteRow); } return; } const row = event.target.closest(".stream-row"); const statusToggle = event.target.closest("[data-status-toggle]"); const statusOption = event.target.closest("[data-status-option]"); const favoriteToggle = event.target.closest("[data-favorite-toggle]"); const toggle = event.target.closest("[data-toggle]"); const move = event.target.closest("[data-move]"); const edit = event.target.closest("[data-edit]"); const commentEdit = event.target.closest("[data-edit-comment]"); const deletion = event.target.closest("[data-delete]"); const comment = event.target.closest("[data-comment]"); if (statusToggle) { event.stopPropagation(); const menu = row?.querySelector(`[data-status-menu="${CSS.escape(statusToggle.dataset.statusToggle)}"]`); if (menu) menu.hidden = !menu.hidden; return; } if (statusOption) { event.stopPropagation(); const id = row?.dataset.id; row?.querySelector(".status-menu")?.setAttribute("hidden", ""); if (id) setStatuses(statusOption.dataset.statusOption, [id]); return; } if (favoriteToggle) { event.stopPropagation(); const stream = selectedStreamById(favoriteToggle.dataset.favoriteToggle); if (stream) setFavorite(stream.id, !stream.favorite); return; } if (toggle) { const stream = state.streams.find((item) => item.id === toggle.dataset.toggle); if (stream) { stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); } return; } if (move) { event.stopPropagation(); select(move.dataset.move); startMove(); return; } if (edit) { select(edit.dataset.edit); openEditor(selectedStream()); return; } if (commentEdit) { const card = event.target.closest(".comment-card"); const stream = event.target.closest(".stream-row"); const comment = stream && state.streams.find((item) => item.id === stream.dataset.id)?.comments?.find((item) => item.id === commentEdit.dataset.editComment); if (card && stream && comment) { state.selected = stream.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); state.commentId = comment.id; savePresentationAndUrl(); openCommentEditor(comment); } return; } if (deletion) { select(deletion.dataset.delete); openDelete(selectedStream(), "stream"); return; } if (comment) { select(comment.dataset.comment); openComment(); return; } const card = event.target.closest(".comment-card"); if (card && row) { state.selected = row.dataset.id; state.focusColumn = "comments"; state.commentIndex = Number(card.dataset.commentIndex); state.commentId = state.streams.find((item) => item.id === row.dataset.id)?.comments?.[state.commentIndex]?.id || null; render(); savePresentationAndUrl(); return; } if (row) { const selection = window.getSelection(); if (selection && selection.toString()) return; select(row.dataset.id); } });
+  list.addEventListener("click", (event) => { const deadlineBreadcrumb = event.target.closest("[data-deadline-root]"); if (deadlineBreadcrumb) { event.stopImmediatePropagation(); openRootedView(deadlineBreadcrumb.dataset.deadlineRoot, "push", "deadline"); } });
   list.addEventListener("dblclick", (event) => { const row = event.target.closest(".stream-row"); if (row) { select(row.dataset.id); enterRoot(); } });
   document.querySelector("#view-select").addEventListener("change", (event) => { state.view = validViews.has(event.target.value) ? event.target.value : "priority"; applyPresentation(); render(); savePresentationAndUrl(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
   window.addEventListener("popstate", restoreFromHistory);

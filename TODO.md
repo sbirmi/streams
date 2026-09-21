@@ -7,7 +7,7 @@ This is the active implementation queue. Keep near-term work at the top. When an
 - [ ] **Review and settle the UI prototype.** Use `prototype/` to decide the primary hierarchy, density, controls, comment presentation, and mouse/keyboard interaction before building the production UI.
 - [ ] **Build the first vertical slice.** Implement the default priority view plus create/edit/comment flows, safe server-side Markdown rendering, and enough vanilla JS for expand/collapse and inline refresh without a frontend framework.
 - [ ] Add keyboard navigation and mouse actions for insertion, moving, and reordering.
-- [ ] Add alternate deadline, chronological, and stale-open views.
+- [ ] Add alternate chronological and stale-open views.
 - [ ] Persist view, filter, and other remaining UI preferences in browser storage/cookies where useful.
 
 ## Later
@@ -18,6 +18,8 @@ This is the active implementation queue. Keep near-term work at the top. When an
 - [ ] Add backup/restore commands and deployment packaging.
 
 ## Completed
+
+- [x] **Build the flat Deadline view.** Added the shareable `view=deadline` mode with rooted-subtree/index scoping, open-only filtering, overdue/today/rolling seven-day groups, overdue highlighting, relative breadcrumbs, and flat keyboard navigation.
 
 - [x] **Add shared transaction undo/redo.** Added durable transaction envelopes above object history, atomic revision-checked undo/redo for existing mutations including bulk operations, retained abandoned redo branches, `tu`/`tr` shortcuts, affected-stream focus metadata, and compact UI feedback. Verified with `./scripts/test` (49 tests passing).
 

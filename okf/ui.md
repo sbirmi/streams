@@ -98,11 +98,15 @@ The default view is a tree-oriented priority view:
 
 ### Manual-order view
 
-The View selector offers `Priority`, `Recently touched`, `Manual order`, and `Stale`. Manual order preserves each sibling list’s stored `order_key` sequence, so inserting an item before or after an existing item keeps that placement visible in the hierarchy.
+The View selector offers `Priority`, `Recently touched`, `Manual order`, `Stale`, and `Deadline`. Manual order preserves each sibling list’s stored `order_key` sequence, so inserting an item before or after an existing item keeps that placement visible in the hierarchy.
 
 ### Deadline-first view
 
-Show open items ordered by deadline, either as a flat list or while retaining the hierarchy. Items without deadlines need a defined placement, likely after dated items.
+The `Deadline` view is always flat and shows only open streams. On the Index page it includes every open stream; in a rooted view it includes the rooted stream and all open descendants, regardless of hierarchy depth. The current tree depth does not affect inclusion, indentation, grouping, or ordering.
+
+Rows are grouped in this order: overdue items (oldest deadline first), today, today plus the next six days, then rolling seven-day buckets. A separator appears between groups. Overdue rows use a light red treatment; today and near-term future rows remain neutral. Undated open streams appear last under `No deadline`.
+
+Each row shows the stream ID, summary, relative location breadcrumbs, owners, deadline, last-touched date, and compact priority/tags. Breadcrumbs are context only and do not restore hierarchy in the list. In a rooted view they are relative to the current root; on the Index page they show the full path. Clicking a breadcrumb opens that stream as the new rooted Deadline view. The view uses `view=deadline` in shareable URLs and follows the application’s local date for the date-only “today” boundary.
 
 ### Chronological view
 
