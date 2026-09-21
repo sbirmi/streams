@@ -39,6 +39,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R33 — Transaction navigation:** A successful undo or redo returns enough affected-object context for the client to restore the relevant rooted view and focus the affected stream or comment when possible.
 - **R34 — Transaction explorer:** A user can open a read-only `/transactions` page to search and inspect transaction metadata, undo/redo relationships, and retained abandoned branches.
 - **R35 — History position awareness:** The primary view shows whether the shared data is at the current transaction head or at an older logical history position, including the relevant transaction actor and timestamp.
+- **R36 — Required write attribution:** The UI must require a non-empty display username before allowing any mutation, including stream/comment edits, insertions, deletes, status/favorite changes, moves, and transaction undo/redo; it must not substitute `anonymous`.
 
 ## Non-functional
 

@@ -1,6 +1,6 @@
 # Concurrent editing model
 
-The application has shared, anonymous-by-default access. Concurrent edits are therefore a normal case, not an exceptional one.
+The application has shared, accountless access, but mutations require a non-empty display username for attribution. Concurrent edits are therefore a normal case, not an exceptional one.
 
 ## Initial strategy: optimistic concurrency
 
