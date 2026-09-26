@@ -20,7 +20,7 @@ Horizontal navigation moves within the current row:
 - Up/down moves among visible rows while preserving the current column where possible.
 - When a target row has fewer comments than the current comment position, focus should land on its last available comment or stream content.
 - Collapsed descendants are not navigation targets.
-- Focus must remain visible after movement, including horizontal scrolling of the comment rail.
+- Focus must remain visible after movement, including horizontal scrolling of the comment rail, and must not be hidden beneath the sticky header/viewbar when moving upward.
 
 Arrow keys are supported alongside vi-style keys. The recommended vi-style set is `h`/`j`/`k`/`l` for left/down/up/right. `;` may be considered as an alternate right key if `l` proves awkward, but having one canonical right key is preferable.
 
