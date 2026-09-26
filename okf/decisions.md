@@ -95,3 +95,9 @@ Favorites are a boolean property on streams and are shared workspace state under
 - **Status:** accepted for initial implementation
 - **Decision:** `Z Backspace` always zooms from the current rooted stream to its actual `parent_stream_id`, or to `Index` when that parent is absent. This applies regardless of whether the root was entered interactively, loaded from a deep link, or displayed through a flat view such as Deadline. At `Index`, the command is a no-op.
 - **Reason:** Zooming out should have one predictable hierarchy meaning independent of navigation history or presentation ordering.
+
+## D015 — Clickable complete rooted-view breadcrumbs
+
+- **Status:** accepted for initial implementation
+- **Decision:** The header displays the complete hierarchy from `Index` through the current rooted stream, including ancestors not present in the navigation stack. Index and ancestor segments re-root the current view at that stream while preserving the active view/sort mode; the current stream is a non-interactive `aria-current="page"` label.
+- **Reason:** Deep links and one-shot navigation should expose the same orientation and direct path back to any ancestor.
