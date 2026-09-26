@@ -13,4 +13,5 @@ if [ ! -x "$venv_dir/bin/python" ] || [ ! -x "$venv_dir/bin/pip" ]; then
 fi
 
 "$venv_dir/bin/python" -m pip install --disable-pip-version-check --quiet -r "$project_root/requirements.lock"
+node "$project_root/tests/test_navigation.js"
 exec "$venv_dir/bin/python" -m unittest discover -s "$project_root/tests" -p 'test_*.py' -v

@@ -1,5 +1,23 @@
+function walkNavigationItems(roots, childrenOf, ordered, expandedForDisplay) {
+  const result = [];
+  function visit(stream, visited = new Set()) {
+    if (visited.has(stream.id)) return;
+    const nextVisited = new Set(visited);
+    nextVisited.add(stream.id);
+    result.push(stream);
+    if (expandedForDisplay(stream)) {
+      ordered(childrenOf(stream.id)).forEach((child) => visit(child, nextVisited));
+    }
+  }
+  roots.forEach((stream) => visit(stream));
+  return result;
+}
+
+if (typeof module !== "undefined" && module.exports) module.exports = { walkNavigationItems };
+
 (() => {
   "use strict";
+  if (typeof document === "undefined") return;
 
   const validViews = new Set(["priority", "recent", "manual", "stale", "deadline"]);
   const dashboardMode = window.location.pathname === "/dashboard";
@@ -319,10 +337,10 @@
   function expandedForDisplay(stream) { return stream.expanded !== false || state.searchExpandedIds.has(stream.id); }
   function navigationItems() {
     if (state.view === "deadline") return deadlineItems();
-    const items = visibleItems(); const result = [];
-    function visit(stream, visited = new Set()) { if (visited.has(stream.id)) return; const nextVisited = new Set(visited); nextVisited.add(stream.id); result.push(stream); if (expandedForDisplay(stream)) ordered(childrenOf(stream.id, items)).forEach((child) => visit(child, nextVisited)); }
+    const items = visibleItems();
     const rootId = currentRootId();
-    ordered(rootId ? items.filter((stream) => stream.id === rootId) : displayChildrenOf(null, items)).forEach(visit); return result;
+    const roots = ordered(rootId ? items.filter((stream) => stream.id === rootId) : displayChildrenOf(null, items));
+    return walkNavigationItems(roots, (id) => childrenOf(id, items), ordered, expandedForDisplay);
   }
   function navigationEntries() {
     if (state.view === "deadline") return deadlineItems().map((stream) => ({ stream, depth: 0 }));
