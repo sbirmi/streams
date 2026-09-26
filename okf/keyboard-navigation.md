@@ -41,7 +41,7 @@ When moving vertically, preserve the current comment index where possible. If th
 | `PageUp` / `PageDown` | Move by a viewport | Preserve the focus column. |
 | `/` | Focus search/filter | Do not intercept while editing text. |
 | `Z Enter` | Re-root the view at the focused stream | The focused stream becomes the current view root. |
-| `Z Backspace` | Pop the current view root | Returns to the parent stream or `Index`, preserving the most recently selected stream when it still exists in the newly visible subtree; otherwise focuses a safe visible fallback. No-op at `Index`. |
+| `Z Backspace` | Zoom out to the current root’s parent | Uses the stream hierarchy, even for a direct deep link or a flat view such as Deadline. Returns to `Index` for a root stream, preserves the most recently selected stream when it remains visible, and otherwise focuses a safe fallback. No-op at `Index`. |
 | `?` | Open shortcut help | Existing prototype behavior. |
 | `Escape` | Leave modal or restore row focus | Modal focus is restored to the object that opened it. |
 

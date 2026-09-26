@@ -89,3 +89,9 @@ Favorites are a boolean property on streams and are shared workspace state under
 - **Status:** accepted for initial implementation
 - **Decision:** Existing stream and comment dialogs place Copy ref, Copy link, and Edit in that order, focus Edit on open, and omit a redundant heading close button. Stream summaries and metadata remain editable by default; only the Markdown description is rendered-first and switches to source editing through Edit. Comments remain rendered-first and switch their Markdown body to editing through Edit.
 - **Reason:** The common modal action is editing the meaningful plain-text fields, while Markdown source editing is a deliberate mode change. Removing duplicate close affordances keeps keyboard focus and the heading compact.
+
+## D014 — Hierarchy-based zoom out
+
+- **Status:** accepted for initial implementation
+- **Decision:** `Z Backspace` always zooms from the current rooted stream to its actual `parent_stream_id`, or to `Index` when that parent is absent. This applies regardless of whether the root was entered interactively, loaded from a deep link, or displayed through a flat view such as Deadline. At `Index`, the command is a no-op.
+- **Reason:** Zooming out should have one predictable hierarchy meaning independent of navigation history or presentation ordering.

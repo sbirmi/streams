@@ -391,11 +391,13 @@
   function popRoot() {
     if (!state.rootPath.length) return;
     const previousSelection = state.selected;
-    const leaving = selectedStreamById(state.rootPath.pop());
+    const currentRoot = selectedStreamById(currentRootId());
+    const parentId = currentRoot?.parent_stream_id || null;
+    state.rootPath = parentId ? [parentId] : [];
     const parentItems = currentRootItems();
     const selectionStillVisible = previousSelection && parentItems.some((stream) => stream.id === previousSelection);
     if (!selectionStillVisible) {
-      const fallback = currentRootId() || leaving?.parent_stream_id || leaving?.id || navigationItems()[0]?.id || null;
+      const fallback = currentRootId() || currentRoot?.id || navigationItems()[0]?.id || null;
       state.selected = parentItems.some((stream) => stream.id === fallback) ? fallback : parentItems[0]?.id || null;
     } else {
       state.selected = previousSelection;
