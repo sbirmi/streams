@@ -39,6 +39,7 @@ The first screen under review is intentionally narrow in scope:
 - The browser tab title identifies the current destination as `streams: Index`, `streams: Dashboard`, `streams: Transactions`, or `streams: <root summary>` for a rooted view.
 - The header and viewbar remain fixed while the stream list scrolls beneath them. Keyboard focus movement must keep the highlighted stream or comment below the bottom edge of this fixed chrome, including when moving upward to the first visible item.
 - Stream rows are list-like rather than cards, with minimal padding and no decorative containers.
+- Hierarchy uses three coordinated visual cues in tree views: the existing depth indentation, a subtle vertical rail aligned to each nested row, and a restrained neutral background tint that increases with depth. Focus/selection always takes precedence with a strong blue outline and leading accent; move selection retains its amber treatment. Deadline and other flat views do not use depth tinting or rails and continue to show hierarchy through their existing breadcrumbs.
 - The summary has no unrelated trailing labels. Update time, owners, priority, tags, and deadline appear beneath it.
 - Priority is the first tag and is styled like a tag with a distinct color.
 - Owners and tags use smaller text.
