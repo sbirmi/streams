@@ -55,6 +55,16 @@ STREAM_HOST=0.0.0.0 STREAM_PORT=5000 STREAM_DATABASE_PATH=data/stream.sqlite3 ./
 
 Use `GET /healthz` for a basic health check. Do not bind to a public interface without first revisiting the trusted-network security model.
 
+## Check datastore integrity
+
+Run the read-only integrity audit periodically and before deployments or restores:
+
+```sh
+./scripts/check-data
+```
+
+The command checks SQLite's structural and foreign-key integrity plus application-level invariants that SQLite cannot express, including stream parent cycles, cross-bundle parents, duplicate sibling order keys, malformed JSON fields, malformed history records, and dangling transaction references. Historical records for deleted objects are valid and are retained. It exits `0` when the database is clean and nonzero when it finds issues. It never repairs or writes the database. Use `--database PATH` or `STREAM_DATABASE_PATH` to select another datastore.
+
 The complete shortcut map is in `config/shortcuts.yaml`. Set `STREAM_SHORTCUTS_PATH` to use another file; the strict action-to-bindings configuration is loaded at service startup. Every implemented keyboard action must be present, and a missing, malformed, duplicate, or incomplete file prevents startup so the browser cannot silently fall back to hardcoded bindings.
 
 ## Backup principle
