@@ -7,10 +7,10 @@
   function readUrlState(url = new URL(window.location.href)) {
     const params = url.searchParams;
     urlState.hasRoot = params.has("root"); urlState.hasView = params.has("view"); urlState.hasFocus = params.has("focus");
-    urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus");
+    urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus"); urlState.query = params.get("q") || "";
   }
   readUrlState();
-  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: "", pendingCommand: [], editing: null, editingPlacement: null, editorMode: "edit", commentEditing: null, commentMode: "edit", deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null, historyPosition: null };
+  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: urlState.query || "", searchExpandedIds: new Set(), pendingCommand: [], editing: null, editingPlacement: null, editorMode: "edit", commentEditing: null, commentMode: "edit", deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null, historyPosition: null };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -37,7 +37,7 @@
   }
   function updateUrl(historyMode = "replace") {
     const url = new URL(window.location.href);
-    url.searchParams.delete("root"); url.searchParams.delete("view"); url.searchParams.delete("focus");
+    url.searchParams.delete("root"); url.searchParams.delete("view"); url.searchParams.delete("focus"); url.searchParams.delete("q");
     if (state.dashboard) {
       const focus = state.selected ? `stream:${state.selected}` : null;
       if (focus) url.searchParams.set("focus", focus);
@@ -49,6 +49,7 @@
     const rootId = currentRootId();
     if (rootId) url.searchParams.set("root", rootId);
     url.searchParams.set("view", state.view);
+    if (state.query) url.searchParams.set("q", state.query);
     const focus = focusParam();
     if (focus) url.searchParams.set("focus", focus);
     const canonical = `${url.pathname}?${url.searchParams.toString()}${url.hash}`;
@@ -188,7 +189,7 @@
   function childrenOf(id, items = state.streams) { return items.filter((stream) => stream.parent_stream_id === id); }
   function selectedStreamById(id) { return state.streams.find((stream) => stream.id === id); }
   function currentRootId() { return state.rootPath[state.rootPath.length - 1] || null; }
-  function descendantsOf(id) { const result = []; function visit(parentId) { childrenOf(parentId).forEach((child) => { result.push(child); visit(child.id); }); } visit(id); return result; }
+  function descendantsOf(id) { const result = []; const seen = new Set([id]); function visit(parentId) { childrenOf(parentId).forEach((child) => { if (seen.has(child.id)) return; seen.add(child.id); result.push(child); visit(child.id); }); } visit(id); return result; }
   function currentRootItems() { const rootId = currentRootId(); return rootId ? [selectedStreamById(rootId), ...descendantsOf(rootId)].filter(Boolean) : state.streams; }
   function isClosed(stream) { return stream.status && stream.status !== "open"; }
   function statusLabel(status) { return status === "resolved" ? "Resolved" : status === "no_action" ? "No action needed" : "Open"; }
@@ -238,22 +239,91 @@
       return Number(isClosed(a)) - Number(isClosed(b)) || aPriority - bPriority || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
     });
   }
-  function searchMatches(stream) {
-    const query = state.query.toLowerCase();
-    return !query || [stream.summary, stream.description, ...(stream.tags || []), ...(stream.owners || [])].some((value) => String(value).toLowerCase().includes(query));
+  // Search syntax and matching semantics are documented in okf/search.md.
+  function parseSearchQuery(query) {
+    const tokens = [];
+    let index = 0;
+    while (index < query.length) {
+      while (/\s/.test(query[index] || "")) index += 1;
+      if (index >= query.length) break;
+      let negated = false;
+      if (query[index] === "-") { negated = true; index += 1; }
+      let text = "";
+      if (query[index] === '"') {
+        index += 1;
+        while (index < query.length && query[index] !== '"') {
+          if (query[index] === "\\" && query[index + 1] === '"') index += 1;
+          text += query[index]; index += 1;
+        }
+        if (query[index] === '"') index += 1;
+      } else {
+        while (index < query.length && !/\s/.test(query[index])) { text += query[index]; index += 1; }
+      }
+      if (text) tokens.push({ text, negated });
+    }
+    return tokens;
   }
-  function visibleItems() { return currentRootItems().filter(searchMatches); }
+  function searchField(token) {
+    const separator = token.text.indexOf(":");
+    if (separator <= 0) return null;
+    const name = token.text.slice(0, separator).toLowerCase();
+    const value = token.text.slice(separator + 1).toLowerCase();
+    return new Set(["status", "priority", "tag", "owner", "id"]).has(name) && value ? { name, value } : null;
+  }
+  function searchValues(stream) {
+    return [stream.summary, stream.description, stream.id, ...(stream.tags || []), ...(stream.owners || []), ...(stream.comments || []).map((comment) => comment.body)];
+  }
+  function searchClauseMatches(stream, clause) {
+    const field = searchField(clause);
+    if (!field) return searchValues(stream).some((value) => String(value ?? "").toLowerCase().includes(clause.text.toLowerCase()));
+    if (field.name === "status") {
+      const status = String(stream.status || (stream.closed_at ? "resolved" : "open")).toLowerCase();
+      return field.value === "any" || status === field.value;
+    }
+    if (field.name === "priority") return field.value === "none" ? stream.priority == null : String(stream.priority) === field.value;
+    if (field.name === "tag") return (stream.tags || []).some((tag) => String(tag).toLowerCase() === field.value);
+    if (field.name === "owner") return (stream.owners || []).some((owner) => String(owner).toLowerCase() === field.value);
+    return String(stream.id).toLowerCase() === field.value;
+  }
+  function searchMatches(stream) {
+    return parseSearchQuery(state.query).every((clause) => searchClauseMatches(stream, clause) !== clause.negated);
+  }
+  function visibleItems() {
+    const all = currentRootItems();
+    const clauses = parseSearchQuery(state.query);
+    state.searchExpandedIds = new Set();
+    if (!clauses.length) return all;
+    const matching = new Set(all.filter((stream) => clauses.every((clause) => searchClauseMatches(stream, clause) !== clause.negated)).map((stream) => stream.id));
+    const visible = new Set(matching);
+    const rootId = currentRootId();
+    all.filter((stream) => matching.has(stream.id)).forEach((stream) => {
+      const ancestors = new Set([stream.id]);
+      let parent = selectedStreamById(stream.parent_stream_id);
+      while (parent && !ancestors.has(parent.id) && (!rootId || parent.id !== rootId)) {
+        ancestors.add(parent.id);
+        visible.add(parent.id);
+        state.searchExpandedIds.add(parent.id);
+        parent = selectedStreamById(parent.parent_stream_id);
+      }
+      if (rootId && matching.has(stream.id) && stream.id !== rootId) {
+        visible.add(rootId);
+        state.searchExpandedIds.add(rootId);
+      }
+    });
+    return all.filter((stream) => visible.has(stream.id));
+  }
+  function expandedForDisplay(stream) { return stream.expanded !== false || state.searchExpandedIds.has(stream.id); }
   function navigationItems() {
     if (state.view === "deadline") return deadlineItems();
     const items = visibleItems(); const result = [];
-    function visit(stream) { result.push(stream); if (stream.expanded !== false) ordered(childrenOf(stream.id, items)).forEach(visit); }
+    function visit(stream, visited = new Set()) { if (visited.has(stream.id)) return; const nextVisited = new Set(visited); nextVisited.add(stream.id); result.push(stream); if (expandedForDisplay(stream)) ordered(childrenOf(stream.id, items)).forEach((child) => visit(child, nextVisited)); }
     const rootId = currentRootId();
     ordered(rootId ? items.filter((stream) => stream.id === rootId) : items.filter((stream) => !stream.parent_stream_id)).forEach(visit); return result;
   }
   function navigationEntries() {
     if (state.view === "deadline") return deadlineItems().map((stream) => ({ stream, depth: 0 }));
     const items = visibleItems(); const result = [];
-    function visit(stream, depth) { result.push({ stream, depth }); if (stream.expanded !== false) ordered(childrenOf(stream.id, items)).forEach((child) => visit(child, depth + 1)); }
+    function visit(stream, depth, visited = new Set()) { if (visited.has(stream.id)) return; const nextVisited = new Set(visited); nextVisited.add(stream.id); result.push({ stream, depth }); if (expandedForDisplay(stream)) ordered(childrenOf(stream.id, items)).forEach((child) => visit(child, depth + 1, nextVisited)); }
     const rootId = currentRootId();
     ordered(rootId ? items.filter((stream) => stream.id === rootId) : items.filter((stream) => !stream.parent_stream_id)).forEach((stream) => visit(stream, 0));
     return result;
@@ -263,11 +333,13 @@
   function renderStatusMenu(stream) {
     return `<div class="status-menu" data-status-menu="${stream.id}" hidden><button type="button" data-status-option="open">○ Open</button><button type="button" data-status-option="resolved">✓ Resolved</button><button type="button" data-status-option="no_action">○ No action needed</button></div>`;
   }
-  function renderChildren(parentId, depth, items) { let markup = ""; const children = ordered(childrenOf(parentId, items)); for (const child of children) { if (state.pendingInsert?.placement === "before" && state.pendingInsert.anchorId === child.id) markup += renderPlaceholder(depth); markup += renderStream(child, depth, items); if (state.pendingInsert?.placement === "after" && state.pendingInsert.anchorId === child.id) markup += renderPlaceholder(depth); } if (state.pendingInsert?.placement === "child" && state.pendingInsert.anchorId === parentId) markup += renderPlaceholder(depth); if (state.pendingInsert?.placement === "root" && parentId === null) markup += renderPlaceholder(depth); return markup; }
-  function renderStream(stream, depth, items) {
+  function renderChildren(parentId, depth, items, rendered = new Set()) { let markup = ""; const children = ordered(childrenOf(parentId, items)); for (const child of children) { if (rendered.has(child.id)) continue; if (state.pendingInsert?.placement === "before" && state.pendingInsert.anchorId === child.id) markup += renderPlaceholder(depth); markup += renderStream(child, depth, items, rendered); if (state.pendingInsert?.placement === "after" && state.pendingInsert.anchorId === child.id) markup += renderPlaceholder(depth); } if (state.pendingInsert?.placement === "child" && state.pendingInsert.anchorId === parentId) markup += renderPlaceholder(depth); if (state.pendingInsert?.placement === "root" && parentId === null) markup += renderPlaceholder(depth); return markup; }
+  function renderStream(stream, depth, items, rendered = new Set()) {
+    if (rendered.has(stream.id)) return "";
+    rendered = new Set(rendered); rendered.add(stream.id);
     const children = ordered(childrenOf(stream.id, items));
     const insertingChild = state.pendingInsert?.placement === "child" && state.pendingInsert.anchorId === stream.id;
-    const childMarkup = stream.expanded !== false || insertingChild ? renderChildren(stream.id, depth + 1, items) : "";
+    const childMarkup = expandedForDisplay(stream) || insertingChild ? renderChildren(stream.id, depth + 1, items, rendered) : "";
     const tags = [...(stream.priority == null ? [] : [`<span class="tag priority-tag">#P${stream.priority}</span>`]), ...(stream.tags || []).map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`)].join("");
     const comments = (stream.comments || []).map((comment, index) => renderComment(comment, index)).join("");
     const owners = (stream.owners || []).join(", ");
@@ -567,7 +639,8 @@
   list.addEventListener("click", (event) => { const deadlineBreadcrumb = event.target.closest("[data-deadline-root]"); if (deadlineBreadcrumb) { event.stopImmediatePropagation(); openRootedView(deadlineBreadcrumb.dataset.deadlineRoot, "push", "deadline"); } });
   list.addEventListener("dblclick", (event) => { const row = event.target.closest(".stream-row"); if (row) { select(row.dataset.id); enterRoot(); } });
   document.querySelector(".brand").addEventListener("click", (event) => { const breadcrumb = event.target.closest("[data-breadcrumb-root]"); if (!breadcrumb) return; const id = breadcrumb.dataset.breadcrumbRoot; if (id) openRootedView(id, "push", state.view); else openIndex("push", state.view); });
-  document.querySelector("#view-select").addEventListener("change", (event) => { state.view = validViews.has(event.target.value) ? event.target.value : "priority"; applyPresentation(); render(); savePresentationAndUrl(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); });
+  search.value = state.query;
+  document.querySelector("#view-select").addEventListener("change", (event) => { state.view = validViews.has(event.target.value) ? event.target.value : "priority"; applyPresentation(); render(); savePresentationAndUrl(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); savePresentationAndUrl(); });
   window.addEventListener("popstate", restoreFromHistory);
   username.addEventListener("input", () => username.removeAttribute("aria-invalid")); username.addEventListener("change", saveUsername); username.addEventListener("blur", saveUsername);
   document.querySelector("#editor-form").addEventListener("submit", submitStream); document.querySelector("#comment-form").addEventListener("submit", submitComment); document.querySelector("#delete-form").addEventListener("submit", submitDelete);

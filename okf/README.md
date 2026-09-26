@@ -18,6 +18,7 @@ Documentation is the source of truth. Every implementation change must update th
 | [Integrations](integrations.md) | Configurable external-reference recognition and rendering |
 | [Deployment](deployment.md) | Deployment guide and operational expectations |
 | [Cheatsheet](cheatsheet.md) | Fast reference for contributors and operators |
+| [Search](search.md) | Search grammar, matching, rooted scope, and result presentation |
 | [Decisions](decisions.md) | Decisions already made and their rationale |
 | [Open questions](open-questions.md) | Topics deliberately left for future discussion |
 

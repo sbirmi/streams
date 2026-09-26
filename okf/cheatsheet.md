@@ -25,6 +25,7 @@
 - Sibling order is stored in a server-controlled numeric `order_key`, allocated with gaps and shown read-only in the stream modal. Clients must not submit it as an editable stream field.
 - The View selector offers Priority, Recently touched, Manual order, and Stale. Manual order renders siblings by `order_key`.
 - Permalinks use `root=<stream-id>`, `view=priority|recent|manual|stale`, and `focus=stream:<stream-id>` or `focus=comment:<comment-id>`. Omit `root` for the index; local expansion and presentation state remain client-side per bundle/root, independent of sort mode.
+- Search behavior is defined in the [Search source of truth](search.md). Space-separated terms are ANDed, a leading `-` negates an expression, and `q` is shareable in the URL. In a rooted view, matching descendants cause only the minimum ancestor path to expand.
 
 ## Release checklist
 

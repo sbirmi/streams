@@ -9,7 +9,7 @@ Requirement status is **proposed** unless stated otherwise.
 - **R3 — Update:** A user can edit note metadata and content, including an ordered owner list and optional date-only deadline.
 - **R4 — Append:** A user can add a short update/comment to a note without rewriting its history.
 - **R5 — Organize:** Notes can have a small amount of structure such as status, tags, timestamps, owners, and deadlines. Status is one of `open`, `resolved`, or `no_action`; tags are an ordered list of non-empty strings.
-- **R6 — Find:** A user can list and search/filter notes sufficiently for a small shared collection.
+- **R6 — Find:** A user can list and search/filter notes sufficiently for a small shared collection. Search behavior, including AND/negation, field filters, rooted scope, and minimum ancestor expansion, is defined in [Search](search.md).
 - **R7 — Conflict safety:** A stale editor cannot silently overwrite a newer revision. The user must be shown a conflict and given a safe merge/retry path.
 - **R8 — Shared access:** Any user who can reach the service can read and write according to the trusted-network model.
 - **R9 — Export/backup:** Data can be backed up and restored using documented operations.

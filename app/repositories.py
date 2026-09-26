@@ -178,6 +178,8 @@ class Repository:
                 ):
                     raise ValueError("child insertion must remain inside the rooted view")
             if parent_stream_id:
+                if parent_stream_id == stream_id:
+                    raise ValueError("a stream cannot be its own ancestor")
                 self._require_stream(connection, parent_stream_id, bundle_id=bundle_id)
             order_key = self._insertion_order_key(
                 connection, bundle_id, parent_stream_id, anchor_stream_id, placement
