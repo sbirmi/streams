@@ -442,10 +442,10 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
   function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
-  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction" };
+  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream and all descendants", delete_stream_promote: "Delete the focused stream and promote direct children", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction" };
   const shortcutGroups = [
     { title: "Navigation", actions: ["move_left", "move_right", "move_up", "move_down", "move_previous_sibling", "move_next_sibling", "zoom_enter", "zoom_back"] },
-    { title: "Adding, Editing, and Deleting", actions: ["edit", "add_comment", "insert_before", "insert_after", "insert_child", "delete_stream", "delete_comment", "delete_visual"] },
+    { title: "Adding, Editing, and Deleting", actions: ["edit", "add_comment", "insert_before", "insert_after", "insert_child", "delete_stream", "delete_stream_promote", "delete_comment", "delete_visual"] },
     { title: "Moving", note: "Press m to enter move mode; p, n, c, and u are available there.", actions: ["start_selection", "start_move"], contextualActions: ["move_before", "move_after", "move_child", "move_promote"] },
     { title: "Status", actions: ["mark_open", "mark_resolved", "mark_no_action"] },
     { title: "Folding", actions: ["fold_open", "fold_open_all", "fold_close", "fold_close_all", "fold_toggle"] },
@@ -539,11 +539,16 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   function setCommentMode(mode) { state.commentMode = mode; const rendered = document.querySelector("#comment-rendered"); const fields = document.querySelector("#comment-fields"); const toggle = document.querySelector("#comment-mode-toggle"); const copyId = document.querySelector("[data-copy-comment-id]"); const copyLink = document.querySelector("[data-copy-comment-link]"); const comment = state.commentEditing; const isRendered = mode === "rendered" && Boolean(comment); rendered.hidden = !isRendered; fields.hidden = isRendered; toggle.hidden = !comment; copyId.hidden = !comment; copyLink.hidden = !comment; toggle.textContent = isRendered ? "Edit" : "View"; if (isRendered) document.querySelector("#comment-rendered-body").innerHTML = renderedBody(comment, "body", "body_html"); }
   function openCommentEditor(comment) { if (!comment) return; state.editing = null; state.commentEditing = comment; document.querySelector("#comment-title").textContent = "View comment"; document.querySelector("#comment-submit").textContent = "Save"; document.querySelector("#comment-body").value = comment.body || ""; document.querySelector("#comment-error").textContent = ""; setCommentMode("rendered"); commentDialog.showModal(); document.querySelector("#comment-mode-toggle").focus(); }
   async function submitComment(event) { event.preventDefault(); if (!requireUsername()) return; const body = document.querySelector("#comment-body").value.trim(); const editingComment = state.commentEditing; try { if (editingComment) { await api(`/api/comments/${editingComment.id}`, { method: "PATCH", body: JSON.stringify({ actor: actor(), revision: editingComment.revision, body, sticky_note: Boolean(editingComment.sticky_note) }) }); state.focusColumn = "comments"; state.selected = editingComment.stream_id; state.commentId = editingComment.id; } else { const stream = state.editing; await api(`/api/streams/${stream.id}/comments`, { method: "POST", body: JSON.stringify({ actor: actor(), body }) }); } commentDialog.close(); await loadStreams(); document.querySelector("#status-message").textContent = editingComment ? "Comment saved" : "Comment added"; } catch (error) { document.querySelector("#comment-error").textContent = error.status === 409 ? "This comment changed elsewhere. Review the current comment before saving again." : error.message; } }
-  function openDelete(target, type) {
+  function openDelete(target, type, mode = "subtree") {
     if (!requireUsername() || !target) return;
-    state.deleteTarget = { target, type };
-    document.querySelector("#delete-title").textContent = `Delete ${type}?`;
-    document.querySelector("#delete-message").textContent = type === "stream" ? `Delete “${target.summary}”? Its direct children will become root streams, and its comments will be deleted.` : `Delete this comment by ${target.creator}?`;
+    state.deleteTarget = { target, type, mode };
+    document.querySelector("#delete-title").textContent = type === "stream" ? (mode === "promote" ? "Delete and promote children?" : "Delete stream and subtree?") : "Delete comment?";
+    document.querySelector("#delete-message").textContent = type === "stream"
+      ? (mode === "promote"
+        ? `Delete “${target.summary}” and its comments? Its direct children will be promoted one level, preserving their descendants.`
+        : `Delete “${target.summary}” and all of its descendants, including their comments? This cannot be undone.`)
+      : `Delete this comment by ${target.creator}?`;
+    document.querySelector("#delete-submit").textContent = type === "stream" && mode === "promote" ? "Delete and promote children" : "Delete";
     document.querySelector("#delete-error").textContent = "";
     deleteDialog.showModal();
     document.querySelector("#delete-cancel")?.focus();
@@ -568,14 +573,14 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     if (!requireUsername()) return;
     const deletion = state.deleteTarget;
     if (!deletion) return;
-    const { target, targets, type } = deletion;
+    const { target, targets, type, mode } = deletion;
     try {
       if (type === "visual") {
         const all = targets.flatMap((stream) => [stream, ...descendantsOf(stream.id)]);
         const revisions = Object.fromEntries(all.map((stream) => [stream.id, stream.revision]));
         await api("/api/streams/delete-block", { method: "POST", body: JSON.stringify({ actor: actor(), stream_ids: targets.map((stream) => stream.id), revisions }) });
       } else {
-        await api(`/api/${type === "stream" ? "streams" : "comments"}/${target.id}`, { method: "DELETE", body: JSON.stringify({ actor: actor(), revision: target.revision }) });
+        await api(`/api/${type === "stream" ? "streams" : "comments"}/${target.id}`, { method: "DELETE", body: JSON.stringify({ actor: actor(), revision: target.revision, ...(type === "stream" ? { mode: mode || "subtree" } : {}) }) });
       }
       deleteDialog.close();
       state.deleteTarget = null;
@@ -599,7 +604,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
         state.commentIndex = 0;
       }
       await loadStreams();
-      document.querySelector("#status-message").textContent = type === "visual" ? "Selected streams deleted" : `${type === "stream" ? "Stream" : "Comment"} deleted`;
+      document.querySelector("#status-message").textContent = type === "visual" ? "Selected streams deleted" : `${type === "stream" ? (mode === "promote" ? "Stream deleted and children promoted" : "Stream subtree deleted") : "Comment deleted"}`;
     } catch (error) {
       document.querySelector("#delete-error").textContent = error.status === 409 ? "This item changed elsewhere. Close this dialog, refresh, and review the current item before deleting." : error.message;
     }
@@ -702,7 +707,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     else if (action === "open_help") shortcutsDialog.showModal();
     else if (action === "zoom_enter") enterRoot();
     else if (action === "zoom_back") popRoot();
-    else if (action === "delete_stream") openDelete(selectedStream(), "stream");
+    else if (action === "delete_stream") openDelete(selectedStream(), "stream", "subtree");
+    else if (action === "delete_stream_promote") openDelete(selectedStream(), "stream", "promote");
     else if (action === "delete_comment") openDelete(selectedComment(), "comment");
     else if (action === "delete_visual") openDeleteVisual();
     else if (action.startsWith("fold_")) fold(action);

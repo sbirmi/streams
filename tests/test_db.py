@@ -361,7 +361,7 @@ class DatabaseTestCase(unittest.TestCase):
         child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=parent["id"])
         comment = self.repository.add_comment(parent["id"], "Keep the context", "alice")
 
-        deleted = self.repository.delete_stream(parent["id"], parent["revision"], "bob")
+        deleted = self.repository.delete_stream_promote(parent["id"], parent["revision"], "bob")
 
         self.assertEqual(deleted["id"], parent["id"])
         self.assertEqual(self.repository.get_stream(child["id"])["parent_stream_id"], None)
@@ -373,6 +373,26 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertIsNone(self.repository.list_history("comment", comment["id"])[-1]["after_value"])
         self.assertEqual(self.repository.get_stream(child["id"])["revision"], 2)
 
+    def test_stream_delete_removes_complete_subtree_by_default(self) -> None:
+        bundle = self.repository.create_bundle("Delete subtree", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=parent["id"])
+        grandchild = self.repository.create_stream(
+            bundle["id"], "Grandchild", "alice", parent_stream_id=child["id"]
+        )
+        parent_comment = self.repository.add_comment(parent["id"], "Remove me", "alice")
+        child_comment = self.repository.add_comment(child["id"], "Remove me too", "alice")
+
+        deleted = self.repository.delete_stream(parent["id"], parent["revision"], "bob")
+
+        self.assertEqual(deleted["id"], parent["id"])
+        for stream_id in (parent["id"], child["id"], grandchild["id"]):
+            with self.assertRaises(NotFound):
+                self.repository.get_stream(stream_id)
+        for comment_id in (parent_comment["id"], child_comment["id"]):
+            with self.assertRaises(NotFound):
+                self.repository.get_comment(comment_id)
+
     def test_stream_delete_keeps_promoted_children_in_deleted_root_slot(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         before = self.repository.create_stream(bundle["id"], "Before", "alice")
@@ -381,7 +401,7 @@ class DatabaseTestCase(unittest.TestCase):
         first_child = self.repository.create_stream(bundle["id"], "First child", "alice", parent_stream_id=parent["id"])
         second_child = self.repository.create_stream(bundle["id"], "Second child", "alice", parent_stream_id=parent["id"])
 
-        self.repository.delete_stream(parent["id"], parent["revision"], "bob")
+        self.repository.delete_stream_promote(parent["id"], parent["revision"], "bob")
 
         streams = self.repository.list_streams(bundle["id"])
         self.assertEqual(
@@ -497,7 +517,7 @@ class DatabaseTestCase(unittest.TestCase):
         deleted_comment = self.repository.add_comment(deleted["id"], "Delete this comment", "alice")
         descendant_comment = self.repository.add_comment(grandchild["id"], "Keep this comment", "alice")
 
-        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+        self.repository.delete_stream_promote(deleted["id"], deleted["revision"], "bob")
 
         roots = [item for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None]
         self.assertEqual([item["id"] for item in roots], [before["id"], first["id"], second["id"], after["id"]])
@@ -535,7 +555,7 @@ class DatabaseTestCase(unittest.TestCase):
         grandchild = self.repository.create_stream(bundle["id"], "Grandchild", "alice", parent_stream_id=child["id"])
         comment = self.repository.add_comment(deleted["id"], "Restore me", "alice")
 
-        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+        self.repository.delete_stream_promote(deleted["id"], deleted["revision"], "bob")
         with self.assertRaises(NotFound):
             self.repository.get_stream(deleted["id"])
         self.repository.undo_latest("carol")
@@ -610,7 +630,7 @@ class DatabaseTestCase(unittest.TestCase):
         deleted = self.repository.create_stream(bundle["id"], "Delete me", "alice")
         other = self.repository.create_stream(bundle["id"], "Other", "alice")
 
-        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+        self.repository.delete_stream_promote(deleted["id"], deleted["revision"], "bob")
         self.repository.undo_latest("carol")
         restored = self.repository.get_stream(deleted["id"])
         self.repository.update_stream(

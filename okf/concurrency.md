@@ -13,7 +13,7 @@ Each independently editable object (stream, comment, and eventually other editab
 
 This prevents silent last-write-wins clobbering without requiring locks or user accounts. Editing a stream should not block someone else from editing a different stream or comment.
 
-Deletion uses the same revision precondition as editing. A stale stream or comment delete returns the normal conflict response with the current representation; it never removes newer data. Successful deletions retain before snapshots in history, and stream deletion records the promotion of direct children as separate stream changes.
+Deletion uses the same revision precondition as editing. A stale stream or comment delete returns the normal conflict response with the current representation; it never removes newer data. The default single-stream deletion removes the complete subtree atomically; the explicit promotion variant records promoted direct children as separate stream changes. Successful deletions retain before snapshots in history.
 
 Undo and redo use the same optimistic concurrency principle. Applying an inverse or replaying a transaction must verify all affected object revisions and must be atomic. If any affected object has changed since the original transaction or since the last undo/redo step, the whole operation is rejected with a visible conflict rather than partially applying. The original transaction remains in history, and the failed attempt must not mutate the data.
 

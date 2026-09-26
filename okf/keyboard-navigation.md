@@ -55,7 +55,8 @@ The object under focus determines which modal opens:
 | Key | Action | Notes |
 | --- | --- | --- |
 | `e` | Edit the focused stream or comment | Opens the stream editor or the selected comment editor. |
-| `d s` | Delete the focused stream | Opens a stream-delete confirmation modal; acts on the containing stream even when the comment rail has focus; never delete on a single `d`. |
+| `d s` | Delete the focused stream and all descendants | Opens a subtree-delete confirmation modal; acts on the containing stream even when the comment rail has focus; never delete on a single `d`. |
+| `d S` | Delete the focused stream and promote direct children | Opens a promotion-delete confirmation modal; direct children move one level up while preserving their descendants. |
 | `d c` | Delete the focused comment | Opens a comment-delete confirmation modal for the exact comment at `commentIndex`; it never implicitly targets the newest comment and is a no-op when stream content has focus; never delete on a single `d`. |
 | `d v` | Delete the completed visual selection | Requires `v` selection to be finished with a second `v`; opens a confirmation showing selected roots, descendant count, and comments. The entire selected subtrees are deleted atomically. |
 | `a` | Add a comment to the focused stream | Opens the comment modal in create mode. |
@@ -104,7 +105,7 @@ The generic command HUD describes every valid next key with its action, rather t
 
 The previous `>>`/`<<` shortcuts are retired in favor of move mode. Pointer move controls should use the same destinations and server operation.
 
-The `ip`/`in`/`ic` family makes the insertion destination explicit and prevents a lone `i` from mutating data. Each sequence shows its pending state and cancels on `Escape`.
+The `ip`/`in`/`ic` family makes the insertion destination explicit and prevents a lone `i` from mutating data. Each sequence shows its pending state and cancels on `Escape`. The deletion bindings are `ds` for subtree deletion and `dS` for explicit direct-child promotion.
 
 When the current view has no focused stream, `ic` is a no-op because there is no parent for a child insertion. In a rooted view, `ip` and `in` are blocked when the focused stream is the view root because their siblings would be outside the visible subtree. `ic` remains allowed. The toolbar root-add action is also blocked in a rooted view.
 
@@ -153,13 +154,13 @@ The HUD should:
 - optionally support Backspace to remove the last prefix key;
 - time out an abandoned prefix after a short, visible interval.
 
-The same feedback model applies to `ip`, `in`, `ic`, `ds`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
+The same feedback model applies to `ip`, `in`, `ic`, `ds`, `dS`, and `dc`, with the next valid choices shown after the prefix. A pending command must not mutate data.
 
 Modifier-only browser key events such as `Shift`, `Control`, `Alt`, `Meta`, and `CapsLock` are ignored while matching a pending sequence. This allows shifted bindings such as `zO` to be entered as `z`, `Shift`, `o` without treating the browser’s intermediate `Shift` event as an invalid command token. The final `event.key` remains the configured key (`O` in this example), and modifier-only keys are not commands themselves.
 
 The automated suite does not synthesize browser `keydown` ordering, so shifted-sequence behavior should also be smoke-tested in a browser.
 
-After confirmation, single-object deletion sends the focused object’s revision to the API. Visual-block deletion sends revisions for every stream in the selected subtrees. On success, the UI refreshes the list and restores focus to the nearest surviving stream; for a comment, focus remains on its stream. On a stale response, the confirmation modal remains open and explains that the current item must be reviewed before retrying. Block deletion removes descendants and comments; it does not promote children.
+After confirmation, single-object deletion sends the focused object’s revision to the API, with `ds` selecting subtree deletion and `dS` selecting direct-child promotion. Visual-block deletion sends revisions for every stream in the selected subtrees. On success, the UI refreshes the list and restores focus to the nearest surviving stream; for a comment, focus remains on its stream. On a stale response, the confirmation modal remains open and explains that the current item must be reviewed before retrying. Block deletion and `ds` remove descendants and comments; `dS` deletes only the focused stream/comments and promotes direct children.
 
 The `Z` prefix uses the same feedback model and accepts `Enter` or `Backspace` as its second key. A pending `Z` must not change the view until the second key arrives.
 

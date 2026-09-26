@@ -305,7 +305,16 @@ class Repository:
             return updated
 
     def delete_stream(self, stream_id: str, expected_revision: int, actor: str) -> dict[str, Any]:
-        """Delete one stream, promote its children to roots, and retain audit history."""
+        """Delete one stream and its complete subtree, retaining audit history."""
+
+        current = self.get_stream(stream_id)
+        self.delete_streams(
+            [stream_id], {stream_id: expected_revision}, actor, require_all_revisions=False
+        )
+        return current
+
+    def delete_stream_promote(self, stream_id: str, expected_revision: int, actor: str) -> dict[str, Any]:
+        """Delete one stream and promote its direct children one level."""
 
         with self.database.transaction() as connection:
             self._begin_transaction(connection, actor, "delete_stream", "Deleted stream")
@@ -499,7 +508,13 @@ class Repository:
                     updated.append(after)
             return updated
 
-    def delete_streams(self, stream_ids: list[str], revisions: dict[str, int], actor: str) -> list[str]:
+    def delete_streams(
+        self,
+        stream_ids: list[str],
+        revisions: dict[str, int],
+        actor: str,
+        require_all_revisions: bool = True,
+    ) -> list[str]:
         """Delete selected sibling roots and their complete subtrees atomically."""
 
         if not stream_ids:
@@ -538,7 +553,9 @@ class Repository:
                 collect(root["id"])
             snapshots = {stream_id: _decode(self._require_stream(connection, stream_id)) for stream_id in subtree_ids}
             for stream_id in subtree_ids:
-                expected = revisions.get(stream_id)
+                expected = revisions.get(stream_id, snapshots[stream_id]["revision"])
+                if require_all_revisions and stream_id not in revisions:
+                    raise ValueError("a revision is required for every stream in the selected subtrees")
                 if not isinstance(expected, int):
                     raise ValueError("a revision is required for every stream in the selected subtrees")
                 self._check_revision("stream", stream_id, snapshots[stream_id], expected)
@@ -550,7 +567,8 @@ class Repository:
             for row in comment_rows:
                 self._record_history(connection, "comment", row["id"], actor, dict(row), None)
             for stream_id in reversed(subtree_ids):
-                connection.execute("DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, revisions[stream_id]))
+                expected = revisions.get(stream_id, snapshots[stream_id]["revision"])
+                connection.execute("DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, expected))
             remaining = [stream_id for stream_id in sibling_ids if stream_id not in stream_ids]
             sibling_before = {
                 stream_id: snapshots.get(stream_id) or _decode(self._require_stream(connection, stream_id))

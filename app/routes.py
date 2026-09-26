@@ -272,9 +272,11 @@ def register_routes(app: Flask) -> None:
         expected_revision = data.get("revision")
         if not isinstance(expected_revision, int):
             raise ValueError("revision is required")
-        return jsonify(deleted_stream=repository().delete_stream(
-            stream_id, expected_revision, actor(data)
-        ))
+        if data.get("mode", "subtree") == "promote":
+            deleted = repository().delete_stream_promote(stream_id, expected_revision, actor(data))
+        else:
+            deleted = repository().delete_stream(stream_id, expected_revision, actor(data))
+        return jsonify(deleted_stream=deleted)
 
     @app.post("/api/streams/delete-block")
     def delete_stream_block() -> Response:

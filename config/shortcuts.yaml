@@ -15,6 +15,7 @@ cancel_command: Escape
 zoom_enter: Z Enter
 zoom_back: Z Backspace
 delete_stream: ds
+delete_stream_promote: dS
 delete_comment: dc
 delete_visual: dv
 insert_before: ip

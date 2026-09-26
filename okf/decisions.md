@@ -31,11 +31,11 @@
 - **Decision:** Keep schema changes as ordered SQL migrations. A repository layer owns SQL and short SQLite transactions; routes and future services do not manage raw connections directly.
 - **Reason:** This keeps the data boundary explicit, makes upgrades reviewable, and supports revision checks/history without coupling the UI to SQLite details.
 
-## D006 — Stream deletion promotes children and preserves audit history
+## D006 — Stream deletion modes preserve audit history
 
 - **Status:** accepted for initial implementation
-- **Decision:** Deleting a stream removes only that stream. Its direct children are promoted to root-level streams, and its comments are deleted with it. A leaf nested below a root does not affect root sibling ordering; its sibling-list `order_key` is never compared with root keys. When promotion or root deletion does require root reordering, every changed sibling receives a history snapshot so undo/redo can restore the complete logical ordering. The deletion requires the stream’s current revision. Delete history entries retain before snapshots for the stream, its deleted comments, and promoted children.
-- **Reason:** The existing foreign-key model uses `ON DELETE SET NULL` for `parent_stream_id` and `ON DELETE CASCADE` for comments. Promoting children avoids silently deleting a potentially large subtree while preserving the established hierarchy semantics.
+- **Decision:** `ds` deletes the focused stream, its complete subtree, and all descendant comments. `dS` explicitly deletes only the focused stream and its comments, promoting direct children one level while preserving their descendants. Both operations require the focused stream’s current revision and retain before snapshots for undo/redo. Promotion and any sibling reordering record affected stream snapshots. A leaf nested below a root does not affect root sibling ordering; its sibling-list `order_key` is never compared with root keys.
+- **Reason:** Complete deletion is the safer and more predictable default for a destructive command. Promotion remains available when the user intentionally wants to remove a container while keeping its contents. The existing foreign-key model uses `ON DELETE SET NULL` for `parent_stream_id` and `ON DELETE CASCADE` for comments.
 
 ## D007 — Explicit insertion commands and rooted-view safety
 

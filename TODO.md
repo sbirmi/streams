@@ -19,6 +19,8 @@ This is the active implementation queue. Keep near-term work at the top. When an
 
 ## Completed
 
+- [x] **Separate destructive stream deletion from child promotion.** `ds` now deletes a stream subtree by default; `dS` explicitly promotes direct children. Confirmation modals, API mode, shortcut help, tests, and source-of-truth documentation distinguish both operations.
+
 - [x] **Build the flat Deadline view.** Added the shareable `view=deadline` mode with rooted-subtree/index scoping, open-only filtering, overdue/today/rolling seven-day groups, overdue highlighting, relative breadcrumbs, and flat keyboard navigation.
 
 - [x] **Add shared transaction undo/redo.** Added durable transaction envelopes above object history, atomic revision-checked undo/redo for existing mutations including bulk operations, retained abandoned redo branches, `tu`/`tr` shortcuts, affected-stream focus metadata, and compact UI feedback. Verified with `./scripts/test` (49 tests passing).

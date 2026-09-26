@@ -190,6 +190,30 @@ class ApplicationShellTestCase(unittest.TestCase):
         )
         self.assertEqual(delete_stream.status_code, 200)
 
+    def test_delete_api_promote_mode_preserves_descendants(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Hierarchy", "actor": "alice"}).json["bundle"]
+        parent = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Parent", "actor": "alice"}
+        ).json["stream"]
+        child = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams",
+            json={"summary": "Child", "actor": "alice", "parent_stream_id": parent["id"]},
+        ).json["stream"]
+        grandchild = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams",
+            json={"summary": "Grandchild", "actor": "alice", "parent_stream_id": child["id"]},
+        ).json["stream"]
+
+        response = self.client.delete(
+            f"/api/streams/{parent['id']}",
+            json={"revision": parent["revision"], "actor": "bob", "mode": "promote"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        repository = self.app.extensions["repository"]
+        self.assertIsNone(repository.get_stream(child["id"])["parent_stream_id"])
+        self.assertEqual(repository.get_stream(grandchild["id"])["parent_stream_id"], child["id"])
+
     def test_comment_update_api_uses_revision_preconditions(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         stream = self.client.post(
@@ -218,6 +242,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         shortcuts = response.json["shortcuts"]
         self.assertEqual(shortcuts["insert_before"], ["ip"])
         self.assertEqual(shortcuts["delete_stream"], ["ds"])
+        self.assertEqual(shortcuts["delete_stream_promote"], ["dS"])
         self.assertEqual(shortcuts["zoom_back"], ["Z Backspace"])
         self.assertEqual(shortcuts["move_down"], ["j", "ArrowDown"])
         self.assertEqual(shortcuts["move_previous_sibling"], ["("])
@@ -248,7 +273,7 @@ class ApplicationShellTestCase(unittest.TestCase):
             "move_left: [h, ArrowLeft]", "move_right: l", "move_up: k", "move_down: j",
             "move_previous_sibling: (", "move_next_sibling: )",
             "edit: e", "add_comment: a", "open_help: ?", "cancel_command: Escape",
-            "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds",
+            "zoom_enter: Z Enter", "zoom_back: Z Backspace", "delete_stream: ds", "delete_stream_promote: dS",
             "delete_comment: dc", "insert_before: ip", "insert_after: in", "insert_child: ic",
             "delete_visual: dv",
             "fold_open: zo", "fold_open_all: zO", "fold_close: zc", "fold_close_all: zC",
