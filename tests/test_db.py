@@ -105,6 +105,176 @@ class DatabaseTestCase(unittest.TestCase):
         self.assertEqual(state["mode"], "head")
         self.assertEqual(state["transaction"]["actor"], "dana")
 
+    def test_stream_creation_undo_and_redo_restores_parent_and_order(self) -> None:
+        bundle = self.repository.create_bundle("Create undo", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        created = self.repository.create_stream(
+            bundle["id"], "Created child", "alice", parent_stream_id=parent["id"]
+        )
+
+        self.repository.undo_latest("bob")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(created["id"])
+        transaction = self.repository.list_transactions(kind="mutation", state="undone")[0]
+        self.assertEqual(transaction["action_type"], "create_stream")
+
+        self.repository.redo_latest("bob")
+        restored = self.repository.get_stream(created["id"])
+        self.assertEqual(restored["summary"], "Created child")
+        self.assertEqual(restored["parent_stream_id"], parent["id"])
+        self.assertEqual(restored["order_key"], created["order_key"])
+
+    def test_stream_field_edit_undo_redo_restores_all_editable_fields(self) -> None:
+        bundle = self.repository.create_bundle("Fields", "alice")
+        stream = self.repository.create_stream(
+            bundle["id"], "Original", "alice", description="Original body", priority=2,
+            deadline="2026-09-20", owners=["alice"], tags=["old"],
+        )
+        changed = self.repository.update_stream(stream["id"], stream["revision"], "bob", {
+            "summary": "Updated",
+            "description": "Updated body",
+            "owners": [" carol ", "dana"],
+            "tags": ["new", " urgent "],
+            "deadline": "2026/10/05",
+            "priority": 0,
+            "status": "resolved",
+            "favorite": True,
+        })
+        edit_transaction = self.repository.list_transactions(kind="mutation", limit=1)[0]
+
+        self.repository.undo_latest("carol")
+        original = self.repository.get_stream(stream["id"])
+        for field in ("summary", "description", "owners", "tags", "deadline", "priority", "status", "favorite"):
+            self.assertEqual(original[field], stream[field], field)
+        self.assertEqual(self.repository.list_transactions(kind="undo")[0]["target_transaction_id"], edit_transaction["id"])
+
+        self.repository.redo_latest("carol")
+        redone = self.repository.get_stream(stream["id"])
+        for field in ("summary", "description", "owners", "tags", "deadline", "priority", "status", "favorite"):
+            self.assertEqual(redone[field], changed[field], field)
+        detail = self.repository.get_transaction(edit_transaction["id"])
+        self.assertEqual(
+            {item["field"] for item in detail["changes"]},
+            {"summary", "description", "owners", "tags", "deadline", "priority", "status", "favorite"},
+        )
+
+    def test_comment_create_edit_and_delete_each_support_undo_redo(self) -> None:
+        bundle = self.repository.create_bundle("Comment transactions", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Thread", "alice")
+
+        created = self.repository.add_comment(stream["id"], "First body", "alice")
+        self.repository.undo_latest("bob")
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(created["id"])
+        self.repository.redo_latest("bob")
+        self.assertEqual(self.repository.get_comment(created["id"])["body"], "First body")
+
+        edited = self.repository.update_comment(created["id"], 2, "carol", "Edited body", sticky_note=True)
+        self.repository.undo_latest("bob")
+        comment = self.repository.get_comment(created["id"])
+        self.assertEqual(comment["body"], "First body")
+        self.assertEqual(comment["sticky_note"], 0)
+        self.repository.redo_latest("bob")
+        comment = self.repository.get_comment(created["id"])
+        self.assertEqual(comment["body"], edited["body"])
+        self.assertEqual(comment["sticky_note"], 1)
+
+        self.repository.delete_comment(created["id"], comment["revision"], "dana")
+        self.repository.undo_latest("bob")
+        self.assertEqual(self.repository.get_comment(created["id"])["body"], "Edited body")
+        self.repository.redo_latest("bob")
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(created["id"])
+
+    def test_bulk_status_undo_redo_is_one_atomic_transaction(self) -> None:
+        bundle = self.repository.create_bundle("Bulk status", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        updated = self.repository.update_stream_statuses(
+            [first["id"], second["id"]],
+            {first["id"]: first["revision"], second["id"]: second["revision"]},
+            "resolved", "bob",
+        )
+
+        mutation = self.repository.list_transactions(kind="mutation", limit=1)[0]
+        self.assertEqual(mutation["action_type"], "bulk_status")
+        self.assertEqual(len(mutation["changes"]), 2)
+        self.repository.undo_latest("carol")
+        self.assertEqual(self.repository.get_stream(first["id"])["status"], "open")
+        self.assertEqual(self.repository.get_stream(second["id"])["status"], "open")
+        self.repository.redo_latest("carol")
+        self.assertEqual(self.repository.get_stream(first["id"])["status"], updated[0]["status"])
+        self.assertEqual(self.repository.get_stream(second["id"])["status"], updated[1]["status"])
+
+    def test_move_reparent_and_order_undo_redo_restores_all_affected_streams(self) -> None:
+        bundle = self.repository.create_bundle("Move transactions", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        third = self.repository.create_stream(bundle["id"], "Third", "alice")
+        destination = self.repository.create_stream(bundle["id"], "Destination", "alice")
+        moved = self.repository.move_streams(
+            [second["id"]], {second["id"]: second["revision"]}, destination["id"], "child", "bob"
+        )[0]
+        self.assertEqual(moved["parent_stream_id"], destination["id"])
+        self.repository.undo_latest("carol")
+        self.assertIsNone(self.repository.get_stream(second["id"])["parent_stream_id"])
+        self.assertEqual(
+            [item["id"] for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None],
+            [first["id"], second["id"], third["id"], destination["id"]],
+        )
+        self.repository.redo_latest("carol")
+        self.assertEqual(self.repository.get_stream(second["id"])["parent_stream_id"], destination["id"])
+        self.assertEqual(
+            [item["id"] for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None],
+            [first["id"], third["id"], destination["id"]],
+        )
+
+    def test_mixed_object_transactions_can_be_undone_repeatedly_and_redone(self) -> None:
+        bundle = self.repository.create_bundle("Mixed sequence", "alice")
+        stream = self.repository.create_stream(bundle["id"], "Draft", "alice")
+        edited = self.repository.update_stream(stream["id"], stream["revision"], "bob", {"summary": "Final"})
+        comment = self.repository.add_comment(stream["id"], "Context", "carol")
+        self.repository.update_comment(comment["id"], comment["revision"], "dana", "Updated context")
+
+        self.repository.undo_latest("erin")
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Context")
+        self.repository.undo_latest("erin")
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        self.repository.undo_latest("erin")
+        self.assertEqual(self.repository.get_stream(stream["id"])["summary"], "Draft")
+        self.repository.undo_latest("erin")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(stream["id"])
+
+        for _ in range(4):
+            self.repository.redo_latest("frank")
+        self.assertEqual(self.repository.get_stream(stream["id"])["summary"], "Final")
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Updated context")
+        self.assertTrue(self.repository.get_transaction_state()["at_head"])
+
+    def test_undo_conflict_is_atomic_when_an_affected_stream_changes(self) -> None:
+        bundle = self.repository.create_bundle("Undo conflict", "alice")
+        first = self.repository.create_stream(bundle["id"], "First", "alice")
+        second = self.repository.create_stream(bundle["id"], "Second", "alice")
+        self.repository.update_stream_statuses(
+            [first["id"], second["id"]],
+            {first["id"]: first["revision"], second["id"]: second["revision"]},
+            "resolved", "bob",
+        )
+        bulk_transaction = self.repository.list_transactions(kind="mutation", limit=1)[0]
+        self.repository.update_stream(first["id"], 2, "carol", {"summary": "Changed after bulk"})
+        before_second = self.repository.get_stream(second["id"])
+        transaction_count = len(self.repository.list_transactions())
+
+        with self.assertRaises(RevisionConflict):
+            self.repository.undo_latest("dana", transaction_id=bulk_transaction["id"])
+        self.assertEqual(len(self.repository.list_transactions()), transaction_count)
+        self.assertEqual(self.repository.get_stream(first["id"])["summary"], "Changed after bulk")
+        self.assertEqual(self.repository.get_stream(first["id"])["status"], "resolved")
+        self.assertEqual(self.repository.get_stream(second["id"]), before_second)
+        self.assertEqual(self.repository.list_transactions(kind="mutation", state="active")[0]["action_type"], "update_stream")
+
     def test_stream_favorite_defaults_false_and_updates_with_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
@@ -233,6 +403,146 @@ class DatabaseTestCase(unittest.TestCase):
 
         self.assertEqual(context.exception.current["summary"], "New value")
         self.assertEqual(self.repository.get_stream(stream["id"])["revision"], 2)
+
+    def test_middle_delete_promotes_direct_children_but_preserves_deeper_tree(self) -> None:
+        bundle = self.repository.create_bundle("Deep tree", "alice")
+        before = self.repository.create_stream(bundle["id"], "Before", "alice")
+        deleted = self.repository.create_stream(bundle["id"], "Deleted middle", "alice")
+        after = self.repository.create_stream(bundle["id"], "After", "alice")
+        first = self.repository.create_stream(bundle["id"], "First child", "alice", parent_stream_id=deleted["id"])
+        second = self.repository.create_stream(bundle["id"], "Second child", "alice", parent_stream_id=deleted["id"])
+        grandchild = self.repository.create_stream(
+            bundle["id"], "Grandchild", "alice", parent_stream_id=first["id"]
+        )
+        great_grandchild = self.repository.create_stream(
+            bundle["id"], "Great grandchild", "alice", parent_stream_id=grandchild["id"]
+        )
+        deleted_comment = self.repository.add_comment(deleted["id"], "Delete this comment", "alice")
+        descendant_comment = self.repository.add_comment(grandchild["id"], "Keep this comment", "alice")
+
+        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+
+        roots = [item for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None]
+        self.assertEqual([item["id"] for item in roots], [before["id"], first["id"], second["id"], after["id"]])
+        self.assertEqual([item["order_key"] for item in roots], [1000, 2000, 3000, 4000])
+        self.assertIsNone(self.repository.get_stream(first["id"])["parent_stream_id"])
+        self.assertIsNone(self.repository.get_stream(second["id"])["parent_stream_id"])
+        self.assertEqual(self.repository.get_stream(grandchild["id"])["parent_stream_id"], first["id"])
+        self.assertEqual(self.repository.get_stream(great_grandchild["id"])["parent_stream_id"], grandchild["id"])
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(deleted_comment["id"])
+        self.assertEqual(self.repository.get_comment(descendant_comment["id"])["body"], "Keep this comment")
+
+        transaction = self.repository.list_transactions(limit=1)[0]
+        self.assertEqual(transaction["action_type"], "delete_stream")
+        detail = self.repository.get_transaction(transaction["id"])
+        snapshots = {
+            item["object_id"]: item
+            for item in detail["history"]
+            if item["object_type"] == "stream"
+        }
+        self.assertIsNone(snapshots[deleted["id"]]["after_value"])
+        self.assertEqual(snapshots[first["id"]]["after_value"]["order_key"], 2000)
+        self.assertEqual(snapshots[second["id"]]["after_value"]["order_key"], 3000)
+        self.assertEqual(
+            self.repository.list_history("comment", deleted_comment["id"])[-1]["after_value"],
+            None,
+        )
+
+    def test_middle_delete_can_be_undone_and_redone_with_comments_and_order(self) -> None:
+        bundle = self.repository.create_bundle("Undo deep delete", "alice")
+        before = self.repository.create_stream(bundle["id"], "Before", "alice")
+        deleted = self.repository.create_stream(bundle["id"], "Deleted", "alice")
+        after = self.repository.create_stream(bundle["id"], "After", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=deleted["id"])
+        grandchild = self.repository.create_stream(bundle["id"], "Grandchild", "alice", parent_stream_id=child["id"])
+        comment = self.repository.add_comment(deleted["id"], "Restore me", "alice")
+
+        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(deleted["id"])
+        self.repository.undo_latest("carol")
+
+        restored = self.repository.get_stream(deleted["id"])
+        self.assertEqual(restored["parent_stream_id"], None)
+        self.assertEqual(self.repository.get_stream(child["id"])["parent_stream_id"], deleted["id"])
+        self.assertEqual(self.repository.get_stream(grandchild["id"])["parent_stream_id"], child["id"])
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Restore me")
+        self.assertEqual(
+            [item["id"] for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None],
+            [before["id"], deleted["id"], after["id"]],
+        )
+
+        self.repository.redo_latest("carol")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(deleted["id"])
+        self.assertEqual(
+            [item["id"] for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None],
+            [before["id"], child["id"], after["id"]],
+        )
+
+    def test_delete_block_undo_redo_restores_complete_subtree_and_comments(self) -> None:
+        bundle = self.repository.create_bundle("Block undo", "alice")
+        before = self.repository.create_stream(bundle["id"], "Before", "alice")
+        root = self.repository.create_stream(bundle["id"], "Root", "alice")
+        after = self.repository.create_stream(bundle["id"], "After", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=root["id"])
+        grandchild = self.repository.create_stream(bundle["id"], "Grandchild", "alice", parent_stream_id=child["id"])
+        comment = self.repository.add_comment(grandchild["id"], "Subtree note", "alice")
+        revisions = {
+            stream_id: self.repository.get_stream(stream_id)["revision"]
+            for stream_id in [root["id"], child["id"], grandchild["id"]]
+        }
+
+        self.repository.delete_streams([root["id"]], revisions, "bob")
+        self.repository.undo_latest("carol")
+        self.assertEqual(self.repository.get_stream(child["id"])["parent_stream_id"], root["id"])
+        self.assertEqual(self.repository.get_stream(grandchild["id"])["parent_stream_id"], child["id"])
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Subtree note")
+        self.assertEqual(
+            [item["id"] for item in self.repository.list_streams(bundle["id"]) if item["parent_stream_id"] is None],
+            [before["id"], root["id"], after["id"]],
+        )
+        self.repository.redo_latest("carol")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(root["id"])
+
+    def test_delete_block_conflict_is_atomic_for_all_streams_comments_and_history(self) -> None:
+        bundle = self.repository.create_bundle("Atomic block", "alice")
+        root = self.repository.create_stream(bundle["id"], "Root", "alice")
+        sibling = self.repository.create_stream(bundle["id"], "Sibling", "alice")
+        child = self.repository.create_stream(bundle["id"], "Child", "alice", parent_stream_id=root["id"])
+        comment = self.repository.add_comment(child["id"], "Keep on conflict", "alice")
+        self.repository.update_stream(child["id"], child["revision"], "bob", {"summary": "New child"})
+        transaction_count = len(self.repository.list_transactions())
+
+        with self.assertRaises(RevisionConflict):
+            self.repository.delete_streams(
+                [root["id"], sibling["id"]],
+                {root["id"]: root["revision"], sibling["id"]: sibling["revision"], child["id"]: child["revision"]},
+                "carol",
+            )
+
+        self.assertEqual(len(self.repository.list_transactions()), transaction_count)
+        self.assertEqual(self.repository.get_stream(root["id"])["summary"], "Root")
+        self.assertEqual(self.repository.get_stream(child["id"])["summary"], "New child")
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Keep on conflict")
+
+    def test_delete_undo_then_new_mutation_abandons_delete_redo_branch(self) -> None:
+        bundle = self.repository.create_bundle("Branches", "alice")
+        deleted = self.repository.create_stream(bundle["id"], "Delete me", "alice")
+        other = self.repository.create_stream(bundle["id"], "Other", "alice")
+
+        self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
+        self.repository.undo_latest("carol")
+        restored = self.repository.get_stream(deleted["id"])
+        self.repository.update_stream(other["id"], other["revision"], "dana", {"summary": "Changed after undo"})
+
+        with self.assertRaises(ValueError):
+            self.repository.redo_latest("erin")
+        mutation = self.repository.list_transactions(kind="mutation", state="abandoned")
+        self.assertTrue(any(item["action_type"] == "delete_stream" for item in mutation))
+        self.assertEqual(self.repository.get_stream(deleted["id"])["summary"], restored["summary"])
 
     def test_comments_are_independently_revisioned_and_append_history(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")

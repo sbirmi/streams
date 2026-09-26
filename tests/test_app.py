@@ -287,6 +287,23 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(len(response.json["transactions"]), 4)
 
+    def test_transaction_api_undoes_and_redoes_stream_creation(self) -> None:
+        bundle = self.client.post("/api/bundles", json={"name": "Creation history", "actor": "alice"}).json["bundle"]
+        stream = self.client.post(
+            f"/api/bundles/{bundle['id']}/streams", json={"summary": "Created item", "actor": "bob"}
+        ).json["stream"]
+
+        undone = self.client.post("/api/transactions/undo", json={"actor": "carol"})
+        self.assertEqual(undone.status_code, 200)
+        self.assertEqual(undone.json["transaction"]["original_transaction"]["action_type"], "create_stream")
+        self.assertEqual(self.client.get(f"/api/streams/{stream['id']}").status_code, 404)
+
+        redone = self.client.post("/api/transactions/redo", json={"actor": "carol"})
+        self.assertEqual(redone.status_code, 200)
+        restored = self.client.get(f"/api/streams/{stream['id']}")
+        self.assertEqual(restored.status_code, 200)
+        self.assertEqual(restored.json["stream"]["summary"], "Created item")
+
     def test_transaction_state_endpoint_reports_logical_position(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
         stream = self.client.post(
