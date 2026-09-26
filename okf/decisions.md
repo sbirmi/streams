@@ -34,7 +34,7 @@
 ## D006 — Stream deletion promotes children and preserves audit history
 
 - **Status:** accepted for initial implementation
-- **Decision:** Deleting a stream removes only that stream. Its direct children are promoted to root-level streams, and its comments are deleted with it. The deletion requires the stream’s current revision. Delete history entries retain before snapshots for the stream, its deleted comments, and promoted children.
+- **Decision:** Deleting a stream removes only that stream. Its direct children are promoted to root-level streams, and its comments are deleted with it. A leaf nested below a root does not affect root sibling ordering; its sibling-list `order_key` is never compared with root keys. When promotion or root deletion does require root reordering, every changed sibling receives a history snapshot so undo/redo can restore the complete logical ordering. The deletion requires the stream’s current revision. Delete history entries retain before snapshots for the stream, its deleted comments, and promoted children.
 - **Reason:** The existing foreign-key model uses `ON DELETE SET NULL` for `parent_stream_id` and `ON DELETE CASCADE` for comments. Promoting children avoids silently deleting a potentially large subtree while preserving the established hierarchy semantics.
 
 ## D007 — Explicit insertion commands and rooted-view safety

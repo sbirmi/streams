@@ -324,17 +324,13 @@ class Repository:
             for row in comment_rows:
                 self._record_history(connection, "comment", row["id"], actor, dict(row), None)
 
-            # Use the deleted stream's old order to place promoted children between roots.
-            roots_before = [row[0] for row in connection.execute(
-                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS NULL "
-                "AND order_key < ? ORDER BY order_key, created_at, id",
-                (current["bundle_id"], current["order_key"]),
-            ).fetchall()]
-            roots_after = [row[0] for row in connection.execute(
-                "SELECT id FROM streams WHERE bundle_id = ? AND parent_stream_id IS NULL "
-                "AND order_key > ? ORDER BY order_key, created_at, id",
-                (current["bundle_id"], current["order_key"]),
-            ).fetchall()]
+            root_rows = connection.execute(
+                "SELECT * FROM streams WHERE bundle_id = ? AND parent_stream_id IS NULL "
+                "ORDER BY order_key, created_at, id",
+                (current["bundle_id"],),
+            ).fetchall()
+            root_ids = [row["id"] for row in root_rows]
+            root_before = {row["id"]: _decode(row) for row in root_rows}
             promoted_ids: list[str] = []
             promoted_before: dict[str, dict[str, Any]] = {}
             for child in children:
@@ -351,16 +347,47 @@ class Repository:
                 )
                 promoted_ids.append(child["id"])
 
-            self._assign_order_keys(connection, roots_before + promoted_ids + roots_after)
-
-            # Resequencing changes the final promoted snapshots. Record the
-            # post-resequence values so undo validates against what is
-            # actually stored, not the temporary order_key=0 state.
-            for child_id in promoted_ids:
-                promoted_after = _decode(self._require_stream(connection, child_id))
-                self._record_history(
-                    connection, "stream", child_id, actor, promoted_before[child_id], promoted_after
+            # A nested leaf has no root-level ordering effect. In particular,
+            # its order_key belongs to its parent's sibling list and must not
+            # be compared with root keys from the same bundle.
+            if current["parent_stream_id"] is None:
+                insertion_index = root_ids.index(stream_id)
+                final_root_ids = (
+                    root_ids[:insertion_index] + promoted_ids + root_ids[insertion_index + 1:]
                 )
+                timestamp = now()
+                for index, affected_id in enumerate(final_root_ids, start=1):
+                    desired_key = index * 1000
+                    if affected_id in promoted_ids:
+                        connection.execute(
+                            "UPDATE streams SET order_key = ? WHERE id = ?",
+                            (desired_key, affected_id),
+                        )
+                    elif root_before[affected_id]["order_key"] != desired_key:
+                        connection.execute(
+                            "UPDATE streams SET order_key = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                            (desired_key, timestamp, affected_id),
+                        )
+            elif promoted_ids:
+                # There is no meaningful numeric translation between a nested
+                # sibling key and a root key. Promoted children therefore join
+                # the end of the root list, preserving all existing root keys
+                # and avoiding unrelated resequencing.
+                next_root_key = max((root_before[root_id]["order_key"] for root_id in root_ids), default=0) + 1000
+                for offset, child_id in enumerate(promoted_ids):
+                    connection.execute(
+                        "UPDATE streams SET order_key = ? WHERE id = ?",
+                        (next_root_key + offset * 1000, child_id),
+                    )
+
+            # Record final snapshots for every affected stream. This includes
+            # existing roots whose keys changed, as well as promoted children.
+            affected_root_ids = root_ids if current["parent_stream_id"] is None else []
+            for affected_id in affected_root_ids + promoted_ids:
+                before = root_before.get(affected_id) or promoted_before[affected_id]
+                after = _decode(self._require_stream(connection, affected_id))
+                if before != after:
+                    self._record_history(connection, "stream", affected_id, actor, before, after)
 
             result = connection.execute(
                 "DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, expected_revision)
@@ -525,7 +552,22 @@ class Repository:
             for stream_id in reversed(subtree_ids):
                 connection.execute("DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, revisions[stream_id]))
             remaining = [stream_id for stream_id in sibling_ids if stream_id not in stream_ids]
-            self._assign_order_keys(connection, remaining)
+            sibling_before = {
+                stream_id: snapshots.get(stream_id) or _decode(self._require_stream(connection, stream_id))
+                for stream_id in remaining
+            }
+            timestamp = now()
+            for index, stream_id in enumerate(remaining, start=1):
+                desired_key = index * 1000
+                if sibling_before[stream_id]["order_key"] != desired_key:
+                    connection.execute(
+                        "UPDATE streams SET order_key = ?, updated_at = ?, revision = revision + 1 WHERE id = ?",
+                        (desired_key, timestamp, stream_id),
+                    )
+                    after = _decode(self._require_stream(connection, stream_id))
+                    self._record_history(
+                        connection, "stream", stream_id, actor, sibling_before[stream_id], after
+                    )
             for stream_id in reversed(subtree_ids):
                 self._record_history(connection, "stream", stream_id, actor, snapshots[stream_id], None)
             return subtree_ids

@@ -393,6 +393,83 @@ class DatabaseTestCase(unittest.TestCase):
             [1000, 2000, 3000, 4000],
         )
 
+        transaction = self.repository.list_transactions(limit=1)[0]
+        detail = self.repository.get_transaction(transaction["id"])
+        stream_history = {
+            item["object_id"]: item
+            for item in detail["history"]
+            if item["object_type"] == "stream"
+        }
+        self.assertEqual(
+            set(stream_history),
+            {parent["id"], after["id"], first_child["id"], second_child["id"]},
+        )
+        self.assertEqual(stream_history[after["id"]]["before_value"]["order_key"], 3000)
+        self.assertEqual(stream_history[after["id"]]["after_value"]["order_key"], 4000)
+
+    def test_nested_leaf_delete_does_not_resequence_roots_or_create_side_effects(self) -> None:
+        bundle = self.repository.create_bundle("Nested leaf delete", "alice")
+        first_root = self.repository.create_stream(bundle["id"], "First root", "alice")
+        parent = self.repository.create_stream(bundle["id"], "Parent", "alice")
+        last_root = self.repository.create_stream(bundle["id"], "Last root", "alice")
+        leaf = self.repository.create_stream(bundle["id"], "Nested leaf", "alice", parent_stream_id=parent["id"])
+        comment = self.repository.add_comment(leaf["id"], "Leaf context", "alice")
+
+        before = {
+            stream_id: self.repository.get_stream(stream_id)
+            for stream_id in (first_root["id"], parent["id"], last_root["id"], leaf["id"])
+        }
+        history_counts = {
+            stream_id: len(self.repository.list_history("stream", stream_id))
+            for stream_id in (first_root["id"], parent["id"], last_root["id"])
+        }
+        self.assertEqual(leaf["order_key"], first_root["order_key"])
+
+        self.repository.delete_stream(leaf["id"], leaf["revision"], "bob")
+
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(leaf["id"])
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        for stream_id, expected in before.items():
+            if stream_id == leaf["id"]:
+                continue
+            self.assertEqual(self.repository.get_stream(stream_id), expected)
+            self.assertEqual(len(self.repository.list_history("stream", stream_id)), history_counts[stream_id])
+        detail = self.repository.get_transaction(self.repository.list_transactions(limit=1)[0]["id"])
+        self.assertEqual(
+            {(item["object_type"], item["object_id"]) for item in detail["history"]},
+            {("stream", leaf["id"]), ("comment", comment["id"])},
+        )
+
+        self.repository.undo_latest("carol")
+        restored_leaf = self.repository.get_stream(leaf["id"])
+        self.assertEqual(restored_leaf["parent_stream_id"], parent["id"])
+        self.assertEqual(restored_leaf["order_key"], before[leaf["id"]]["order_key"])
+        self.assertEqual(self.repository.get_comment(comment["id"])["body"], "Leaf context")
+        for stream_id in (first_root["id"], parent["id"], last_root["id"]):
+            self.assertEqual(self.repository.get_stream(stream_id), before[stream_id])
+        root_keys = [
+            item["order_key"]
+            for item in self.repository.list_streams(bundle["id"])
+            if item["parent_stream_id"] is None
+        ]
+        self.assertEqual(len(root_keys), len(set(root_keys)))
+
+        self.repository.redo_latest("carol")
+        with self.assertRaises(NotFound):
+            self.repository.get_stream(leaf["id"])
+        with self.assertRaises(NotFound):
+            self.repository.get_comment(comment["id"])
+        for stream_id in (first_root["id"], parent["id"], last_root["id"]):
+            self.assertEqual(self.repository.get_stream(stream_id), before[stream_id])
+        root_keys = [
+            item["order_key"]
+            for item in self.repository.list_streams(bundle["id"])
+            if item["parent_stream_id"] is None
+        ]
+        self.assertEqual(len(root_keys), len(set(root_keys)))
+
     def test_stale_stream_delete_returns_current_value(self) -> None:
         bundle = self.repository.create_bundle("Todos", "alice")
         stream = self.repository.create_stream(bundle["id"], "Prepare release", "alice")
@@ -536,7 +613,9 @@ class DatabaseTestCase(unittest.TestCase):
         self.repository.delete_stream(deleted["id"], deleted["revision"], "bob")
         self.repository.undo_latest("carol")
         restored = self.repository.get_stream(deleted["id"])
-        self.repository.update_stream(other["id"], other["revision"], "dana", {"summary": "Changed after undo"})
+        self.repository.update_stream(
+            other["id"], self.repository.get_stream(other["id"])["revision"], "dana", {"summary": "Changed after undo"}
+        )
 
         with self.assertRaises(ValueError):
             self.repository.redo_latest("erin")
