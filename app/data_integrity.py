@@ -19,6 +19,41 @@ def _label(value: Any) -> str:
     return "<root>" if value is None else str(value)
 
 
+def _text_label(value: Any, limit: int = 80) -> str:
+    value = " ".join(str(value).split())
+    if len(value) > limit:
+        return f"{value[: limit - 1]}…"
+    return value
+
+
+def _bundle_label(bundle_id: str, bundles: dict[str, sqlite3.Row]) -> str:
+    bundle = bundles.get(bundle_id)
+    if bundle is None:
+        return f"<missing> (id={bundle_id})"
+    return f"{_text_label(bundle['name'])!r} (id={bundle_id})"
+
+
+def _parent_label(parent_id: str | None, by_id: dict[str, sqlite3.Row]) -> str:
+    if parent_id is None:
+        return "<root>"
+    parent = by_id.get(parent_id)
+    if parent is None:
+        return f"<missing> (id={parent_id})"
+    return f"{_text_label(parent['summary'])!r} (id={parent_id})"
+
+
+def _stream_label(
+    row: sqlite3.Row,
+    by_id: dict[str, sqlite3.Row],
+    bundles: dict[str, sqlite3.Row],
+) -> str:
+    return (
+        f"{_text_label(row['summary'])!r} (id={row['id']}; "
+        f"bundle={_bundle_label(row['bundle_id'], bundles)}; "
+        f"parent={_parent_label(row['parent_stream_id'], by_id)})"
+    )
+
+
 def _json_array_issues(table: str, row: sqlite3.Row, column: str) -> list[str]:
     try:
         value = json.loads(row[column])
@@ -33,24 +68,34 @@ def _check_streams(connection: sqlite3.Connection) -> list[str]:
     issues: list[str] = []
     rows = connection.execute("SELECT * FROM streams ORDER BY id").fetchall()
     by_id = {row["id"]: row for row in rows}
+    bundles = {
+        row["id"]: row
+        for row in connection.execute("SELECT * FROM bundles ORDER BY id").fetchall()
+    }
 
     for row in rows:
         stream_id = row["id"]
         parent_id = row["parent_stream_id"]
         if parent_id == stream_id:
-            issues.append(f"stream {stream_id} is its own parent")
+            issues.append(f"{_stream_label(row, by_id, bundles)} is its own parent")
         elif parent_id is not None and parent_id not in by_id:
-            issues.append(f"stream {stream_id} has missing parent {parent_id}")
+            issues.append(f"{_stream_label(row, by_id, bundles)} has missing parent")
         elif parent_id is not None and by_id[parent_id]["bundle_id"] != row["bundle_id"]:
-            issues.append(f"stream {stream_id} parent {parent_id} belongs to another bundle")
+            issues.append(
+                f"{_stream_label(row, by_id, bundles)} parent "
+                f"{_stream_label(by_id[parent_id], by_id, bundles)} belongs to another bundle"
+            )
         if row["status"] not in STREAM_STATUSES:
-            issues.append(f"stream {stream_id} has invalid status {row['status']!r}")
+            issues.append(f"{_stream_label(row, by_id, bundles)} has invalid status {row['status']!r}")
         if row["priority"] is not None and (not isinstance(row["priority"], int) or row["priority"] < 0):
-            issues.append(f"stream {stream_id} has invalid priority {row['priority']!r}")
+            issues.append(f"{_stream_label(row, by_id, bundles)} has invalid priority {row['priority']!r}")
         if not isinstance(row["revision"], int) or row["revision"] <= 0:
-            issues.append(f"stream {stream_id} has invalid revision {row['revision']!r}")
+            issues.append(f"{_stream_label(row, by_id, bundles)} has invalid revision {row['revision']!r}")
         for column in ("owners", "tags"):
-            issues.extend(_json_array_issues("stream", row, column))
+            issues.extend(
+                issue.replace(f"stream {stream_id}", _stream_label(row, by_id, bundles), 1)
+                for issue in _json_array_issues("stream", row, column)
+            )
 
     seen_cycles: set[frozenset[str]] = set()
     for start_id in by_id:
@@ -63,21 +108,32 @@ def _check_streams(connection: sqlite3.Connection) -> list[str]:
                 key = frozenset(cycle)
                 if key not in seen_cycles:
                     seen_cycles.add(key)
-                    issues.append(f"stream parent cycle: {' -> '.join(cycle + [current_id])}")
+                    labels = [_stream_label(by_id[stream_id], by_id, bundles) for stream_id in cycle]
+                    issues.append(f"stream parent cycle: {' -> '.join(labels + [labels[0]])}")
                 break
             positions[current_id] = len(path)
             path.append(current_id)
             current_id = by_id[current_id]["parent_stream_id"]
 
     duplicates = connection.execute(
-        "SELECT bundle_id, parent_stream_id, order_key, GROUP_CONCAT(id) AS ids "
+        "SELECT bundle_id, parent_stream_id, order_key "
         "FROM streams GROUP BY bundle_id, parent_stream_id, order_key HAVING COUNT(*) > 1 "
         "ORDER BY bundle_id, parent_stream_id, order_key"
     )
     for row in duplicates:
+        siblings = [
+            sibling
+            for sibling in rows
+            if sibling["bundle_id"] == row["bundle_id"]
+            and sibling["parent_stream_id"] == row["parent_stream_id"]
+            and sibling["order_key"] == row["order_key"]
+        ]
+        siblings.sort(key=lambda sibling: sibling["id"])
         issues.append(
-            f"streams {row['bundle_id']} parent {_label(row['parent_stream_id'])} "
-            f"share order_key {row['order_key']}: {row['ids']}"
+            f"streams in bundle {_bundle_label(row['bundle_id'], bundles)}, "
+            f"parent {_parent_label(row['parent_stream_id'], by_id)} share order_key "
+            f"{row['order_key']}: "
+            + "; ".join(_stream_label(sibling, by_id, bundles) for sibling in siblings)
         )
     return issues
 

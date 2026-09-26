@@ -52,7 +52,33 @@ class DataIntegrityTestCase(unittest.TestCase):
         issues = audit_database(self.path)
         self.assertTrue(any("stream parent cycle" in issue for issue in issues))
         self.assertTrue(any("invalid owners JSON" in issue for issue in issues))
-        self.assertTrue(any("share order_key" in issue for issue in issues))
+        duplicate = next(issue for issue in issues if "share order_key" in issue)
+        self.assertIn("'Todos'", duplicate)
+        self.assertIn("'Third'", duplicate)
+        self.assertIn("'Fourth'", duplicate)
+        self.assertIn(f"id={third['id']}", duplicate)
+        self.assertIn(f"id={fourth['id']}", duplicate)
+        self.assertIn("parent=<root>", duplicate)
+
+    def test_stream_diagnostics_include_parent_and_bundle_context(self) -> None:
+        first_bundle = self.repository.create_bundle("First bundle", "alice")
+        second_bundle = self.repository.create_bundle("Second bundle", "alice")
+        parent = self.repository.create_stream(first_bundle["id"], "Parent", "alice")
+        child = self.repository.create_stream(second_bundle["id"], "Child", "alice")
+        with self.database.transaction() as connection:
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute(
+                "UPDATE streams SET parent_stream_id = ? WHERE id = ?",
+                (parent["id"], child["id"]),
+            )
+            connection.execute("PRAGMA foreign_keys = ON")
+
+        issues = audit_database(self.path)
+        cross_bundle = next(issue for issue in issues if "belongs to another bundle" in issue)
+        self.assertIn("'Child'", cross_bundle)
+        self.assertIn("'Parent'", cross_bundle)
+        self.assertIn("'Second bundle'", cross_bundle)
+        self.assertIn("'First bundle'", cross_bundle)
 
     def test_audit_reports_cross_bundle_parent_and_bad_history_json(self) -> None:
         first_bundle = self.repository.create_bundle("First", "alice")
