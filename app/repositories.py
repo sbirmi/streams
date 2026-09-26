@@ -336,21 +336,31 @@ class Repository:
                 (current["bundle_id"], current["order_key"]),
             ).fetchall()]
             promoted_ids: list[str] = []
+            promoted_before: dict[str, dict[str, Any]] = {}
             for child in children:
                 promoted = dict(child)
                 promoted["parent_stream_id"] = None
                 promoted["order_key"] = 0
                 promoted["updated_at"] = now()
                 promoted["revision"] = child["revision"] + 1
+                promoted_before[child["id"]] = child
                 connection.execute(
                     "UPDATE streams SET parent_stream_id = NULL, order_key = 0, updated_at = ?, revision = revision + 1 "
                     "WHERE id = ?",
                     (promoted["updated_at"], child["id"]),
                 )
-                self._record_history(connection, "stream", child["id"], actor, child, promoted)
                 promoted_ids.append(child["id"])
 
             self._assign_order_keys(connection, roots_before + promoted_ids + roots_after)
+
+            # Resequencing changes the final promoted snapshots. Record the
+            # post-resequence values so undo validates against what is
+            # actually stored, not the temporary order_key=0 state.
+            for child_id in promoted_ids:
+                promoted_after = _decode(self._require_stream(connection, child_id))
+                self._record_history(
+                    connection, "stream", child_id, actor, promoted_before[child_id], promoted_after
+                )
 
             result = connection.execute(
                 "DELETE FROM streams WHERE id = ? AND revision = ?", (stream_id, expected_revision)
@@ -811,8 +821,44 @@ class Repository:
                     raise RevisionConflict(item["object_type"], item["object_id"], current or {})
                 decoded.append((item, current, item["after_value"] if redo else item["before_value"]))
 
-            # Restore parents before children; remove children/comments before parents.
-            ordered = sorted(decoded, key=lambda value: 0 if value[2] is not None else 1)
+            # Replay hierarchy changes in dependency order. Restores must
+            # create parents before descendants and comments; removals must
+            # remove comments and descendants before their parents.
+            desired_by_stream = {
+                item["object_id"]: desired
+                for item, _, desired in decoded
+                if item["object_type"] == "stream" and desired is not None
+            }
+            removal_snapshots = {
+                item["object_id"]: item["before_value"]
+                for item, _, desired in decoded
+                if item["object_type"] == "stream" and desired is None
+            }
+
+            def depth(stream_id: str, snapshots: dict[str, dict[str, Any] | None]) -> int:
+                seen: set[str] = set()
+                current_id = stream_id
+                result = 0
+                while current_id in snapshots and current_id not in seen:
+                    seen.add(current_id)
+                    parent_id = (snapshots[current_id] or {}).get("parent_stream_id")
+                    if parent_id not in snapshots:
+                        break
+                    result += 1
+                    current_id = parent_id
+                return result
+
+            def replay_key(value: tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]) -> tuple[int, int]:
+                item, _, desired = value
+                if desired is not None:
+                    if item["object_type"] == "stream":
+                        return (0, depth(item["object_id"], desired_by_stream))
+                    return (1, 0)
+                if item["object_type"] == "comment":
+                    return (0, 0)
+                return (1, -depth(item["object_id"], removal_snapshots))
+
+            ordered = sorted(decoded, key=replay_key)
             for item, current, desired in ordered:
                 self._apply_snapshot(connection, item["object_type"], item["object_id"], current, desired)
                 self._record_history(connection, item["object_type"], item["object_id"], actor, current, desired)
@@ -890,7 +936,7 @@ class Repository:
         values["revision"] = revision
         values["updated_at"] = now()
         if object_type == "stream":
-            columns = ["bundle_id", "parent_stream_id", "summary", "description", "owners", "creator", "priority", "snooze_until", "deadline", "created_at", "updated_at", "closed_at", "close_status", "tags", "revision", "order_key", "status"]
+            columns = ["bundle_id", "parent_stream_id", "summary", "description", "owners", "creator", "priority", "snooze_until", "deadline", "created_at", "updated_at", "closed_at", "close_status", "tags", "revision", "order_key", "status", "favorite"]
             if current is None:
                 connection.execute("INSERT INTO streams(id, " + ",".join(columns) + ") VALUES (" + ",".join("?" for _ in ["id"] + columns) + ")", tuple([object_id] + [_json(values[c]) if c in {"owners", "tags"} else values.get(c) for c in columns]))
             else:
