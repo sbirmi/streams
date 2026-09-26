@@ -83,3 +83,9 @@ Favorites are a boolean property on streams and are shared workspace state under
 - **Decision:** Store descriptions and comments as raw Markdown; keep stream summaries plain text. Render Markdown on the server at read/display time with a maintained parser and sanitizer. Existing descriptions/comments open rendered-first in the modal, with an edit toggle for the original Markdown. Ordinary hyperlinks are clickable. Built-in stream and comment references, plus configured external patterns, use declarative reference rules that produce validated links. Streams and comments provide copy-link and copy-reference affordances; copied references include their type prefix.
 - **Constraints:** No external CSS or JavaScript is introduced. Raw HTML, unsafe URL schemes, arbitrary plugin HTML/JavaScript, and substitutions inside existing links or code are disallowed. History and concurrency operate on raw source text, not rendered HTML.
 - **Reason:** Rich display is useful for full descriptions/comments while plain summaries preserve compact navigation. A shared server pipeline keeps rendering consistent and makes future integrations reviewable and safe.
+
+## D013 — Compact rendered-first modal actions
+
+- **Status:** accepted for initial implementation
+- **Decision:** Existing stream and comment dialogs place Copy ref, Copy link, and Edit in that order, focus Edit on open, and omit a redundant heading close button. Stream summaries and metadata remain editable by default; only the Markdown description is rendered-first and switches to source editing through Edit. Comments remain rendered-first and switch their Markdown body to editing through Edit.
+- **Reason:** The common modal action is editing the meaningful plain-text fields, while Markdown source editing is a deliberate mode change. Removing duplicate close affordances keeps keyboard focus and the heading compact.
