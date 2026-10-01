@@ -52,7 +52,7 @@ Priority values are the stored numeric priority or `none`; lower numeric priorit
 
 ## Default status scope
 
-Without a status filter, search uses the current view’s normal status scope. In the default priority view this means open streams first, with closed streams governed by that view’s existing closed-item setting. Search must not silently change the view’s status policy merely because a query is present.
+Without a status filter, search uses the current view’s normal status scope. Closed streams are hidden by default in Priority, Recently touched, Manual order, Stale, and Deadline views. The eye control beside the view selector toggles closed stream visibility independently of the active view and rooted subtree. An explicit status field filter, including `status:any`, `status:resolved`, and `status:no_action`, can reveal matching closed streams while the toggle is off. Search never changes the active view’s ordering.
 
 Use `status:any` when the user explicitly wants all statuses, or use a specific status filter to find one terminal state. `status:resolved foo` searches resolved streams containing `foo`.
 

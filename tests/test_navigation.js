@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { walkNavigationItems } = require("../app/static/js/app.js");
+const { walkNavigationItems, closedStreamVisible } = require("../app/static/js/app.js");
 
 function makeTree() {
   const streams = [
@@ -42,4 +42,8 @@ function toleratesCycles() {
 
 visitsVisibleRows();
 toleratesCycles();
-console.log("navigation tests: 2 passed");
+assert.equal(closedStreamVisible({ status: "resolved" }, false, false, (stream) => stream.status !== "open"), false);
+assert.equal(closedStreamVisible({ status: "resolved" }, true, false, (stream) => stream.status !== "open"), true);
+assert.equal(closedStreamVisible({ status: "resolved" }, false, true, (stream) => stream.status !== "open"), true);
+assert.equal(closedStreamVisible({ status: "open" }, false, false, (stream) => stream.status !== "open"), true);
+console.log("navigation tests: 3 passed");

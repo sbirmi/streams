@@ -25,7 +25,7 @@
 - Stream owners are entered as comma-separated names; whitespace-only entries are omitted. Deadlines use `YYYY-MM-DD` and are shown as `due YYYY-MM-DD`.
 - Stream tags are entered as comma- or whitespace-separated values; empty values are omitted and the remaining order is preserved.
 - Sibling order is stored in a server-controlled numeric `order_key`, allocated with gaps and shown read-only in the stream modal. Clients must not submit it as an editable stream field.
-- The View selector offers Priority, Recently touched, Manual order, and Stale. Manual order renders siblings by `order_key`.
+- The View selector offers Priority, Recently touched, Manual order, Stale, and Deadline. Closed streams are hidden by default in stream views, including the Favorites dashboard; the adjacent eye toggle or `V c` shows them without changing view ordering. Explicit status filters such as `status:resolved` and `status:any` can reveal closed streams while the toggle is off. Manual order renders siblings by `order_key`.
 - Permalinks use `root=<stream-id>`, `view=priority|recent|manual|stale`, and `focus=stream:<stream-id>` or `focus=comment:<comment-id>`. Omit `root` for the index; local expansion and presentation state remain client-side per bundle/root, independent of sort mode.
 - Search behavior is defined in the [Search source of truth](search.md). Space-separated terms are ANDed, a leading `-` negates an expression, and `q` is shareable in the URL. In a rooted view, matching descendants cause only the minimum ancestor path to expand.
 

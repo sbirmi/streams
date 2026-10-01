@@ -26,6 +26,8 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertIn(b">Dashboard</button>", response.data)
         self.assertNotIn(b'data-action="copy-link"', response.data)
         self.assertIn(b'value="manual">Manual order', response.data)
+        self.assertIn(b'id="closed-stream-toggle"', response.data)
+        self.assertIn(b'aria-pressed="false"', response.data)
 
     def test_health_endpoint_returns_ok_and_request_id(self) -> None:
         response = self.client.get("/healthz")
@@ -249,6 +251,7 @@ class ApplicationShellTestCase(unittest.TestCase):
         self.assertEqual(shortcuts["move_next_sibling"], [")"])
         self.assertEqual(shortcuts["transaction_undo"], ["tu"])
         self.assertEqual(shortcuts["transaction_redo"], ["tr"])
+        self.assertEqual(shortcuts["toggle_closed_streams"], ["Vc"])
 
     def test_delete_block_api_deletes_selected_subtree(self) -> None:
         bundle = self.client.post("/api/bundles", json={"name": "Todos", "actor": "alice"}).json["bundle"]
@@ -280,7 +283,7 @@ class ApplicationShellTestCase(unittest.TestCase):
             "fold_toggle: za", "start_move: m", "start_selection: v", "move_before: p",
             "move_after: n", "move_child: c", "move_promote: u", "mark_open: so",
             "mark_resolved: sr", "mark_no_action: sn",
-            "transaction_undo: tu", "transaction_redo: tr",
+            "transaction_undo: tu", "transaction_redo: tr", "toggle_closed_streams: Vc",
         ]) + "\n", encoding="utf-8")
 
         shortcuts = load_shortcuts(str(path))

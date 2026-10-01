@@ -37,3 +37,4 @@ mark_resolved: sr
 mark_no_action: sn
 transaction_undo: tu
 transaction_redo: tr
+toggle_closed_streams: Vc

@@ -4,7 +4,7 @@ Status: proposed. This document is the working home for keyboard navigation, foc
 
 Status changes use `so` / `sr` / `sn` for open, resolved, and no action needed. When a completed `v` selection exists, these commands apply to the selected contiguous sibling block atomically; otherwise they apply to the focused stream.
 
-The in-app shortcut help presents the bindings in these groups: Navigation; Adding, Editing, and Deleting; Moving; Status; Folding; Transactions; and Help and Cancellation. Contextual bindings are shown with their context: `p`, `n`, `c`, and `u` are move-mode actions after `m` enters move mode, while `Escape` cancels a pending command or active move/selection state.
+The in-app shortcut help presents the bindings in these groups: Navigation; Adding, Editing, and Deleting; Moving; Status; Folding; Transactions; and Help and Cancellation. Contextual bindings are shown with their context: `p`, `n`, `c`, and `u` are move-mode actions after `m` enters move mode, while `Escape` cancels a pending command or active move/selection state. `V c` toggles closed stream visibility across the active view and rooted subtree; its state is remembered in browser storage.
 
 ## Focus model
 

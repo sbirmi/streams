@@ -20,6 +20,7 @@ SHORTCUT_ACTIONS = {
     "move_before", "move_after", "move_child", "move_promote",
     "mark_open", "mark_resolved", "mark_no_action",
     "transaction_undo", "transaction_redo",
+    "toggle_closed_streams",
 }
 
 

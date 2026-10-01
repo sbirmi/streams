@@ -1,3 +1,7 @@
+function closedStreamVisible(stream, showClosed, explicitStatusFilter, isClosed) {
+  return !isClosed(stream) || showClosed || explicitStatusFilter;
+}
+
 function walkNavigationItems(roots, childrenOf, ordered, expandedForDisplay) {
   const result = [];
   function visit(stream, visited = new Set()) {
@@ -13,7 +17,7 @@ function walkNavigationItems(roots, childrenOf, ordered, expandedForDisplay) {
   return result;
 }
 
-if (typeof module !== "undefined" && module.exports) module.exports = { walkNavigationItems };
+if (typeof module !== "undefined" && module.exports) module.exports = { walkNavigationItems, closedStreamVisible };
 
 (() => {
   "use strict";
@@ -28,7 +32,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     urlState.root = params.get("root"); urlState.view = validViews.has(params.get("view")) ? params.get("view") : null; urlState.focus = params.get("focus"); urlState.query = params.get("q") || "";
   }
   readUrlState();
-  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: urlState.query || "", searchExpandedIds: new Set(), pendingCommand: [], editing: null, editingPlacement: null, editorMode: "edit", commentEditing: null, commentMode: "edit", deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null, historyPosition: null };
+  let showClosedSaved = false;
+  try { showClosedSaved = localStorage.getItem("streams:show-closed") === "true"; } catch (_) { /* localStorage may be unavailable. */ }
+  const state = { bundle: null, streams: [], selected: null, selectedIds: [], selecting: false, selectionReady: false, moveMode: null, rootPath: [], focusColumn: "stream", commentIndex: 0, commentId: null, view: urlState.view || "priority", query: urlState.query || "", showClosed: showClosedSaved, searchExpandedIds: new Set(), pendingCommand: [], editing: null, editingPlacement: null, editorMode: "edit", commentEditing: null, commentMode: "edit", deleteTarget: null, shortcuts: {}, presentationLoaded: false, dashboard: dashboardMode, transactionFocus: null, historyPosition: null };
   const list = document.querySelector("#stream-list");
   const search = document.querySelector("#search");
   const username = document.querySelector("#username");
@@ -217,7 +223,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   function statusLabel(status) { return status === "resolved" ? "Resolved" : status === "no_action" ? "No action needed" : "Open"; }
   function statusIcon(status) { return status === "resolved" ? "✓" : "○"; }
   function favoriteStreams() {
-    return state.streams.filter((stream) => stream.favorite).sort((a, b) => Number(isClosed(a)) - Number(isClosed(b)) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
+    return state.streams.filter((stream) => stream.favorite && (state.showClosed || !isClosed(stream))).sort((a, b) => Number(isClosed(a)) - Number(isClosed(b)) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
   }
   function streamPath(stream) {
     const path = []; const seen = new Set(); let current = stream;
@@ -250,7 +256,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     const ad = dayNumber(a.deadline); const bd = dayNumber(b.deadline);
     return aBucket.order - bBucket.order || (ad == null ? Number.MAX_SAFE_INTEGER : ad) - (bd == null ? Number.MAX_SAFE_INTEGER : bd) || (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER) || b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
   }
-  function deadlineItems() { return currentRootItems().filter((stream) => !isClosed(stream) && searchMatches(stream)).sort(deadlineSort); }
+  function hasExplicitStatusFilter(clauses = parseSearchQuery(state.query)) { return clauses.some((clause) => searchField(clause)?.name === "status"); }
+  function statusVisible(stream, clauses) { return closedStreamVisible(stream, state.showClosed, hasExplicitStatusFilter(clauses), isClosed); }
+  function deadlineItems() { const clauses = parseSearchQuery(state.query); return currentRootItems().filter((stream) => statusVisible(stream, clauses) && searchMatches(stream)).sort(deadlineSort); }
   function ordered(items) {
     return [...items].sort((a, b) => {
       if (state.view === "recent") return b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id);
@@ -313,11 +321,17 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   function visibleItems() {
     const all = currentRootItems();
     const clauses = parseSearchQuery(state.query);
-    state.searchExpandedIds = new Set();
-    if (!clauses.length) return all;
-    const matching = new Set(all.filter((stream) => clauses.every((clause) => searchClauseMatches(stream, clause) !== clause.negated)).map((stream) => stream.id));
-    const visible = new Set(matching);
     const rootId = currentRootId();
+    state.searchExpandedIds = new Set();
+    const eligible = all.filter((stream) => statusVisible(stream, clauses));
+    if (!clauses.length) {
+      const visible = new Set(eligible.map((stream) => stream.id));
+      if (rootId) visible.add(rootId);
+      eligible.forEach((stream) => { let parent = selectedStreamById(stream.parent_stream_id); const seen = new Set([stream.id]); while (parent && !seen.has(parent.id) && (!rootId || parent.id !== rootId)) { visible.add(parent.id); seen.add(parent.id); parent = selectedStreamById(parent.parent_stream_id); } });
+      return all.filter((stream) => visible.has(stream.id));
+    }
+    const matching = new Set(eligible.filter((stream) => clauses.every((clause) => searchClauseMatches(stream, clause) !== clause.negated)).map((stream) => stream.id));
+    const visible = new Set(matching);
     all.filter((stream) => matching.has(stream.id)).forEach((stream) => {
       const ancestors = new Set([stream.id]);
       let parent = selectedStreamById(stream.parent_stream_id);
@@ -377,7 +391,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     const overdue = distance != null && distance < 0;
     const deadline = stream.deadline ? displayDeadline(stream.deadline) : "No deadline";
     const deadlineLabel = distance === 0 ? "today" : overdue ? `${Math.abs(distance)}d overdue` : `due ${deadline}`;
-    return `<article class="stream-row deadline-row ${overdue ? "is-overdue" : ""} ${state.selected === stream.id ? "is-selected" : ""}" data-id="${escapeHtml(stream.id)}" tabindex="-1"><div class="stream-gutter"><span class="status-control-wrap"><button class="status-box" type="button" data-status-toggle="${escapeHtml(stream.id)}" aria-label="Status: Open" title="Change status">○</button>${renderStatusMenu(stream)}</span></div><div class="deadline-main"><div class="deadline-summary"><span class="stream-id" title="Stream ${escapeHtml(stream.id)}">${escapeHtml(stream.id.slice(0, 6))}</span><button class="favorite-toggle" type="button" data-favorite-toggle="${escapeHtml(stream.id)}" aria-label="${stream.favorite ? "Remove" : "Add"} ${escapeHtml(stream.summary)} ${stream.favorite ? "from" : "to"} favorites" title="${stream.favorite ? "Remove from" : "Add to"} favorites">${stream.favorite ? "★" : "☆"}</button><span class="stream-title">${escapeHtml(stream.summary)}</span><button class="stream-move" type="button" data-move="${escapeHtml(stream.id)}" aria-label="Move stream" title="Move stream">↕</button><button class="stream-edit" type="button" data-edit="${escapeHtml(stream.id)}" aria-label="View or edit stream" title="View or edit stream">✎</button><button class="stream-delete" type="button" data-delete="${escapeHtml(stream.id)}" aria-label="Delete stream" title="Delete stream">⌫</button></div><div class="deadline-columns"><span class="deadline-location" title="Hierarchy">${deadlineLocation(stream)}</span><span class="owners" title="Owners">${escapeHtml(owners || "—")}</span><span class="deadline-date">${escapeHtml(deadline)} <small>(${escapeHtml(deadlineLabel)})</small></span><span class="updated">touched ${escapeHtml(displayDate(stream.updated_at))}</span><span class="tag-list">${tags}</span></div></div></article>`;
+    const status = stream.status || (stream.closed_at ? "resolved" : "open");
+    return `<article class="stream-row deadline-row ${overdue ? "is-overdue" : ""} ${isClosed(stream) ? "is-closed" : ""} ${state.selected === stream.id ? "is-selected" : ""}" data-id="${escapeHtml(stream.id)}" tabindex="-1"><div class="stream-gutter"><span class="status-control-wrap"><button class="status-box" type="button" data-status-toggle="${escapeHtml(stream.id)}" aria-label="Status: ${statusLabel(status)}" title="Change status">${statusIcon(status)}</button>${renderStatusMenu(stream)}</span></div><div class="deadline-main"><div class="deadline-summary"><span class="stream-id" title="Stream ${escapeHtml(stream.id)}">${escapeHtml(stream.id.slice(0, 6))}</span><button class="favorite-toggle" type="button" data-favorite-toggle="${escapeHtml(stream.id)}" aria-label="${stream.favorite ? "Remove" : "Add"} ${escapeHtml(stream.summary)} ${stream.favorite ? "from" : "to"} favorites" title="${stream.favorite ? "Remove from" : "Add to"} favorites">${stream.favorite ? "★" : "☆"}</button><span class="stream-title">${escapeHtml(stream.summary)}</span><button class="stream-move" type="button" data-move="${escapeHtml(stream.id)}" aria-label="Move stream" title="Move stream">↕</button><button class="stream-edit" type="button" data-edit="${escapeHtml(stream.id)}" aria-label="View or edit stream" title="View or edit stream">✎</button><button class="stream-delete" type="button" data-delete="${escapeHtml(stream.id)}" aria-label="Delete stream" title="Delete stream">⌫</button></div><div class="deadline-columns"><span class="deadline-location" title="Hierarchy">${deadlineLocation(stream)}</span><span class="owners" title="Owners">${escapeHtml(owners || "—")}</span><span class="deadline-date">${escapeHtml(deadline)} <small>(${escapeHtml(deadlineLabel)})</small></span><span class="updated">touched ${escapeHtml(displayDate(stream.updated_at))}</span><span class="tag-list">${tags}</span></div></div></article>`;
   }
   function renderDeadline() {
     const streams = deadlineItems();
@@ -388,10 +403,13 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
       return `<section class="deadline-group" aria-labelledby="deadline-group-${escapeHtml(group.key)}">${index ? "<hr>" : ""}<h2 id="deadline-group-${escapeHtml(group.key)}">${escapeHtml(group.label)} <span>${group.streams.length}</span></h2>${rows}</section>`;
     }).join("");
     const noDeadline = streams.filter((stream) => !stream.deadline).length;
-    renderToolbarStats(`${streams.length} open stream${streams.length === 1 ? "" : "s"}${noDeadline ? ` · ${noDeadline} without deadline` : ""}`);
-    list.innerHTML = markup || '<div class="empty-filter">No open streams match this filter.</div>';
+    const open = streams.filter((stream) => !isClosed(stream)).length;
+    const countLabel = state.showClosed || hasExplicitStatusFilter() ? `${streams.length} stream${streams.length === 1 ? "" : "s"} · ${open} open` : `${open} open stream${open === 1 ? "" : "s"}`;
+    renderToolbarStats(`${countLabel}${noDeadline ? ` · ${noDeadline} without deadline` : ""}`);
+    list.innerHTML = markup || '<div class="empty-filter">No streams match this filter.</div>';
   }
   function render() {
+    renderClosedToggle();
     if (state.dashboard) { renderDashboard(); return; }
     if (state.view === "deadline") { renderDeadline(); return; }
     const items = visibleItems();
@@ -400,6 +418,40 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     const viewItems = currentRootItems();
     const open = viewItems.filter((stream) => !isClosed(stream)).length;
     renderToolbarStats(`${open} open stream${open === 1 ? "" : "s"} · ${viewItems.length} total`);
+  }
+  function renderClosedToggle() {
+    const button = document.querySelector("#closed-stream-toggle");
+    if (!button) return;
+    const label = state.showClosed ? "Hide closed streams" : "Show closed streams";
+    button.setAttribute("aria-pressed", String(state.showClosed));
+    button.setAttribute("aria-label", label);
+    button.title = `${label} (Vc)`;
+    button.classList.toggle("is-selected", state.showClosed);
+    button.innerHTML = state.showClosed
+      ? '<svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c6.4 0 10 7 10 7a15.5 15.5 0 01-3.2 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.8 10.8 0 004.1-.8"/></svg>'
+      : '<svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  }
+  function toggleClosedStreams() {
+    const visibleBeforeToggle = state.dashboard
+      ? favoriteStreams()
+      : (state.showClosed && !hasExplicitStatusFilter() ? navigationEntries().map(({ stream }) => stream) : []);
+    const selectedIndex = visibleBeforeToggle.findIndex((stream) => stream.id === state.selected);
+    state.showClosed = !state.showClosed;
+    try { localStorage.setItem("streams:show-closed", String(state.showClosed)); } catch (_) { /* localStorage may be unavailable. */ }
+    if (!state.showClosed && selectedIndex >= 0 && isClosed(visibleBeforeToggle[selectedIndex])) {
+      const candidates = visibleBeforeToggle.map((stream, index) => ({ stream, distance: Math.abs(index - selectedIndex), direction: index >= selectedIndex ? 0 : 1 })).filter(({ stream }) => !isClosed(stream));
+      candidates.sort((a, b) => a.distance - b.distance || a.direction - b.direction);
+      if (candidates.length) { state.selected = candidates[0].stream.id; state.focusColumn = "stream"; state.commentId = null; state.commentIndex = 0; }
+      else if (state.dashboard) state.selected = null;
+    }
+    render();
+    if (selectedIndex >= 0) {
+      if (state.dashboard) {
+        const row = document.querySelector(`[data-favorite-row="${CSS.escape(state.selected || "")}"]`);
+        row?.focus();
+        revealInViewport(row);
+      } else focusCurrentTarget();
+    }
   }
   function renderDashboard() {
     const favorites = favoriteStreams();
@@ -442,9 +494,9 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   function setExpanded(stream, expanded, recursive) { stream.expanded = expanded; if (recursive) childrenOf(stream.id).forEach((child) => setExpanded(child, expanded, true)); }
   function fold(action) { const stream = selectedStream(); if (!stream) return; if (action === "fold_open") setExpanded(stream, true, false); if (action === "fold_close") setExpanded(stream, false, false); if (action === "fold_open_all") setExpanded(stream, true, true); if (action === "fold_close_all") setExpanded(stream, false, true); if (action === "fold_toggle") stream.expanded = stream.expanded === false; render(); savePresentationAndUrl(); }
   function showCommandHud(text) { commandHud.textContent = text; commandHud.hidden = !text; }
-  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream and all descendants", delete_stream_promote: "Delete the focused stream and promote direct children", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction" };
+  const shortcutLabels = { move_left: "Move across stream/comments", move_right: "Move across stream/comments", move_up: "Move selection", move_down: "Move selection", move_previous_sibling: "Previous item at this level", move_next_sibling: "Next item at this level", edit: "Edit the focused stream", add_comment: "Add a comment", open_help: "Show this help", cancel_command: "Cancel a pending command", zoom_enter: "Enter the focused rooted view", zoom_back: "Return to the parent view", delete_stream: "Delete the focused stream and all descendants", delete_stream_promote: "Delete the focused stream and promote direct children", delete_comment: "Delete the focused comment", delete_visual: "Delete the visually selected block", insert_before: "Insert before the focused stream", insert_after: "Insert after the focused stream", insert_child: "Insert a child stream", fold_open: "Open one level", fold_open_all: "Open descendants", fold_close: "Close one level", fold_close_all: "Close descendants", fold_toggle: "Toggle the focused hierarchy", start_move: "Pick up a stream", start_selection: "Select a sibling block", move_before: "Place before target", move_after: "Place after target", move_child: "Place as first child", move_promote: "Promote after current parent", mark_open: "Mark open", mark_resolved: "Mark resolved", mark_no_action: "Mark no action needed", transaction_undo: "Undo the latest transaction", transaction_redo: "Redo the latest undone transaction", toggle_closed_streams: "Toggle closed stream visibility" };
   const shortcutGroups = [
-    { title: "Navigation", actions: ["move_left", "move_right", "move_up", "move_down", "move_previous_sibling", "move_next_sibling", "zoom_enter", "zoom_back"] },
+    { title: "Navigation", actions: ["move_left", "move_right", "move_up", "move_down", "move_previous_sibling", "move_next_sibling", "zoom_enter", "zoom_back", "toggle_closed_streams"] },
     { title: "Adding, Editing, and Deleting", actions: ["edit", "add_comment", "insert_before", "insert_after", "insert_child", "delete_stream", "delete_stream_promote", "delete_comment", "delete_visual"] },
     { title: "Moving", note: "Press m to enter move mode; p, n, c, and u are available there.", actions: ["start_selection", "start_move"], contextualActions: ["move_before", "move_after", "move_child", "move_promote"] },
     { title: "Status", actions: ["mark_open", "mark_resolved", "mark_no_action"] },
@@ -674,6 +726,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
   document.querySelector(".brand").addEventListener("click", (event) => { const breadcrumb = event.target.closest("[data-breadcrumb-root]"); if (!breadcrumb) return; const id = breadcrumb.dataset.breadcrumbRoot; if (id) openRootedView(id, "push", state.view); else openIndex("push", state.view); });
   search.value = state.query;
   document.querySelector("#view-select").addEventListener("change", (event) => { state.view = validViews.has(event.target.value) ? event.target.value : "priority"; applyPresentation(); render(); savePresentationAndUrl(); }); search.addEventListener("input", () => { state.query = search.value.trim(); render(); savePresentationAndUrl(); });
+  document.querySelector("#closed-stream-toggle").addEventListener("click", toggleClosedStreams);
   window.addEventListener("popstate", restoreFromHistory);
   username.addEventListener("input", () => username.removeAttribute("aria-invalid")); username.addEventListener("change", saveUsername); username.addEventListener("blur", saveUsername);
   document.querySelector("#editor-form").addEventListener("submit", submitStream); document.querySelector("#comment-form").addEventListener("submit", submitComment); document.querySelector("#delete-form").addEventListener("submit", submitDelete);
@@ -701,6 +754,7 @@ if (typeof module !== "undefined" && module.exports) module.exports = { walkNavi
     else if (action === "mark_no_action") setStatuses("no_action");
     else if (action === "transaction_undo") runTransaction("undo");
     else if (action === "transaction_redo") runTransaction("redo");
+    else if (action === "toggle_closed_streams") toggleClosedStreams();
     else if (action === "edit") { if (state.focusColumn === "comments") openCommentEditor(selectedComment()); else openEditor(selectedStream()); }
     else if (action === "add_comment") openComment();
     else if (action === "open_help") shortcutsDialog.showModal();
