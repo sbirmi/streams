@@ -40,7 +40,7 @@
 ## D007 — Explicit insertion commands and rooted-view safety
 
 - **Status:** accepted for initial implementation
-- **Decision:** Use `ip`, `in`, and `ic` for insertion before, next, and child. A lone `i` is only a pending command. In a rooted view, sibling insertion at the focused root and toolbar root insertion are blocked in the client. The API accepts optional `root_stream_id` context and validates supplied anchors against that subtree.
+- **Decision:** Use `ip`, `in`, and `ic` for insertion before, next, and child. A lone `i` is only a pending command. Root-level insertion has no toolbar affordance and is available through explicit insertion commands in the index view. In a rooted view, sibling insertion at the focused root is blocked in the client. The API accepts optional `root_stream_id` context and validates supplied anchors against that subtree.
 - **Reason:** Single-key insertion made the destination ambiguous, and creating a sibling of a rooted view made an invisible mutation. The current stateless trusted-network API cannot know a browser’s active rooted view when the optional context is omitted, so this is deliberately documented as view safety rather than authorization.
 
 ## D008 — Complete shortcut configuration as the keyboard source of truth

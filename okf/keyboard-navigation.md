@@ -107,7 +107,7 @@ The previous `>>`/`<<` shortcuts are retired in favor of move mode. Pointer move
 
 The `ip`/`in`/`ic` family makes the insertion destination explicit and prevents a lone `i` from mutating data. Each sequence shows its pending state and cancels on `Escape`. The deletion bindings are `ds` for subtree deletion and `dS` for explicit direct-child promotion.
 
-When the current view has no focused stream, `ic` is a no-op because there is no parent for a child insertion. In a rooted view, `ip` and `in` are blocked when the focused stream is the view root because their siblings would be outside the visible subtree. `ic` remains allowed. The toolbar root-add action is also blocked in a rooted view.
+When the current view has no focused stream, `ic` is a no-op because there is no parent for a child insertion. In a rooted view, `ip` and `in` are blocked when the focused stream is the view root because their siblings would be outside the visible subtree. `ic` remains allowed. There is no toolbar root-add action; root-level insertion is available through the explicit insertion commands in the index view.
 
 Moving and inserting must have mouse/pointer equivalents and must preserve selection, focus, and scroll position.
 
